@@ -14,8 +14,8 @@
     "gauge": "Поточні показники",
     "expand": "Показати модель на весь екран",
     "collapse": "Повернутися до статті",
-    "coverAlt": "{{title}}: статичне зображення інтерактивної 3D-моделі",
-    "ar": "View in your room"
+    "ar": "Побачити у своїй кімнаті",
+    "coverAlt": "{{title}}: статичне зображення інтерактивної 3D-моделі"
   },
   "controls": {
     "label": "Керування",
@@ -82,10 +82,10 @@
     "text": "Цієї сторінки немає або її перенесли. Усі пояснення є на головній сторінці."
   },
   "ar": {
-    "exit": "Leave AR",
-    "find": "Move your phone slowly to find the floor or a table",
-    "place": "Tap to place the model",
-    "gestures": "Drag to move, pinch to resize, twist to turn",
-    "failed": "AR could not start on this phone"
+    "exit": "Вийти з AR",
+    "find": "Повільно ведіть телефоном, щоб знайти підлогу або стіл",
+    "place": "Торкніться, щоб поставити модель",
+    "gestures": "Одним пальцем пересувайте, двома змінюйте розмір і повертайте",
+    "failed": "Не вдалося запустити AR на цьому телефоні"
   }
 }

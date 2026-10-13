@@ -14,8 +14,8 @@
     "gauge": "Mesures en direct",
     "expand": "Afficher le modèle en plein écran",
     "collapse": "Revenir à l’article",
-    "coverAlt": "{{title}} : image fixe du modèle 3D interactif",
-    "ar": "View in your room"
+    "ar": "Voir chez vous",
+    "coverAlt": "{{title}} : image fixe du modèle 3D interactif"
   },
   "controls": {
     "label": "Commandes",
@@ -82,10 +82,10 @@
     "text": "Cette page n’existe pas ou a été déplacée. Toutes les explications sont sur la page d’accueil."
   },
   "ar": {
-    "exit": "Leave AR",
-    "find": "Move your phone slowly to find the floor or a table",
-    "place": "Tap to place the model",
-    "gestures": "Drag to move, pinch to resize, twist to turn",
-    "failed": "AR could not start on this phone"
+    "exit": "Quitter la RA",
+    "find": "Bougez lentement votre téléphone pour trouver le sol ou une table",
+    "place": "Touchez pour poser le modèle",
+    "gestures": "Glissez pour déplacer, pincez pour zoomer, tournez pour pivoter",
+    "failed": "Impossible de lancer la RA sur ce téléphone"
   }
 }

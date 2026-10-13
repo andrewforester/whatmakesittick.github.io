@@ -14,8 +14,8 @@
     "gauge": "リアルタイムの計測値",
     "expand": "モデルを全画面で表示",
     "collapse": "記事に戻る",
-    "coverAlt": "{{title}}：インタラクティブな3Dモデルの静止画",
-    "ar": "View in your room"
+    "ar": "お部屋で見る",
+    "coverAlt": "{{title}}：インタラクティブな3Dモデルの静止画"
   },
   "controls": {
     "label": "操作",
@@ -82,10 +82,10 @@
     "text": "このページは存在しないか、移動しました。すべての解説はトップページにあります。"
   },
   "ar": {
-    "exit": "Leave AR",
-    "find": "Move your phone slowly to find the floor or a table",
-    "place": "Tap to place the model",
-    "gestures": "Drag to move, pinch to resize, twist to turn",
-    "failed": "AR could not start on this phone"
+    "exit": "ARを終了",
+    "find": "スマホをゆっくり動かして、床やテーブルを探してください",
+    "place": "タップしてモデルを置いてください",
+    "gestures": "ドラッグで移動、ピンチで拡大・縮小、ひねって回転",
+    "failed": "このスマホではARを開始できませんでした"
   }
 }

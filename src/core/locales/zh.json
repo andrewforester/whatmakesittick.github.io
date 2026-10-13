@@ -14,8 +14,8 @@
     "gauge": "实时读数",
     "expand": "全屏查看模型",
     "collapse": "返回文章",
-    "coverAlt": "{{title}}：交互式 3D 模型的静态图",
-    "ar": "View in your room"
+    "ar": "在你的房间里查看",
+    "coverAlt": "{{title}}：交互式 3D 模型的静态图"
   },
   "controls": {
     "label": "控制",
@@ -82,10 +82,10 @@
     "text": "这个页面不存在，或者已经换了地址。所有图解都在首页。"
   },
   "ar": {
-    "exit": "Leave AR",
-    "find": "Move your phone slowly to find the floor or a table",
-    "place": "Tap to place the model",
-    "gestures": "Drag to move, pinch to resize, twist to turn",
-    "failed": "AR could not start on this phone"
+    "exit": "退出 AR",
+    "find": "慢慢移动手机，找到地面或桌面",
+    "place": "轻点即可放置模型",
+    "gestures": "拖动来移动，双指捏合来缩放，双指转动来旋转",
+    "failed": "这部手机无法启动 AR"
   }
 }
