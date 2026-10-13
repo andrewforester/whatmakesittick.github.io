@@ -14,7 +14,8 @@
     "gauge": "Live-Messwerte",
     "expand": "Modell im Vollbild ansehen",
     "collapse": "Zurück zum Artikel",
-    "coverAlt": "{{title}}: Standbild des interaktiven 3D-Modells"
+    "coverAlt": "{{title}}: Standbild des interaktiven 3D-Modells",
+    "ar": "View in your room"
   },
   "controls": {
     "label": "Bedienelemente",
@@ -79,5 +80,12 @@
   "notFound": {
     "title": "Seite nicht gefunden",
     "text": "Diese Seite gibt es nicht oder sie ist umgezogen. Alle Erklärungen finden Sie auf der Startseite."
+  },
+  "ar": {
+    "exit": "Leave AR",
+    "find": "Move your phone slowly to find the floor or a table",
+    "place": "Tap to place the model",
+    "gestures": "Drag to move, pinch to resize, twist to turn",
+    "failed": "AR could not start on this phone"
   }
 }

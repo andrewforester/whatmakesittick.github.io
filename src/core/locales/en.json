@@ -14,7 +14,15 @@
     "gauge": "Live readings",
     "expand": "Show the model full screen",
     "collapse": "Back to the article",
+    "ar": "View in your room",
     "coverAlt": "{{title}}: a still image of the interactive 3D model"
+  },
+  "ar": {
+    "exit": "Leave AR",
+    "find": "Move your phone slowly to find the floor or a table",
+    "place": "Tap to place the model",
+    "gestures": "Drag to move, pinch to resize, twist to turn",
+    "failed": "AR could not start on this phone"
   },
   "controls": {
     "label": "Controls",

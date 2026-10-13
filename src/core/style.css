@@ -582,7 +582,8 @@ a:hover {
 
 /* Full screen toggle */
 
-.stage-expand {
+.stage-expand,
+.stage-ar {
   position: absolute;
   top: var(--stage-button-top);
   right: var(--stage-button-right);
@@ -604,7 +605,16 @@ a:hover {
     border-color 0.15s ease;
 }
 
-.stage-expand:hover {
+.stage-ar {
+  right: calc(var(--stage-button-right) + var(--stage-button-size) + var(--stage-overlay-gap));
+}
+
+.stage-ar[hidden] {
+  display: none;
+}
+
+.stage-expand:hover,
+.stage-ar:hover {
   border-color: var(--accent);
   background: rgb(13 16 21 / 0.8);
 }

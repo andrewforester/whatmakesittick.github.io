@@ -37,6 +37,7 @@ export interface SceneOptions {
   camera?: CameraOptions;
   highlight?: MaterialLibraryOptions;
   gaugeSide?: GaugeSide;
+  ar?: boolean;
 }
 
 export interface SceneShell {
