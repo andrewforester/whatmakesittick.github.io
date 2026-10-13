@@ -18,6 +18,7 @@ const EXPLAINER_SLUGS = EXPLAINERS.map(({ slug }) => slug).toSorted();
 const SCRUBBER_STOP = 0.5;
 const PERCENT = 100;
 const NON_BLANK = /\S/;
+const AR_BUTTON = '[data-control="ar"]';
 const TOUCH_MEDIA_QUERIES = ['(pointer: coarse)', '(hover: none)'];
 
 async function expectNamedPage(page: Page): Promise<void> {
@@ -91,6 +92,7 @@ for (const { slug, secondLanguage } of EXPLAINERS) {
     await openExplainer(page, slug);
     await expectNamedPage(page);
     await expectExplainerIntact(page);
+    await expect(page.locator(AR_BUTTON), 'AR button without WebXR').toBeHidden();
 
     for (const chapter of await visibleChapters(page)) {
       const preset = await chapter.getAttribute('data-preset');
