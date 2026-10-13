@@ -92,6 +92,7 @@ type Drawn = Object3D & {
   isPoints?: boolean;
   isLine?: boolean;
   isSprite?: boolean;
+  isLineSegments2?: boolean;
 };
 
 function isDrawn(object: Drawn): boolean {
@@ -110,17 +111,35 @@ function isWithin(object: Object3D, root: Object3D): boolean {
   return false;
 }
 
-function farFromFocus(content: Object3D, focus: readonly Object3D[], box: Box3): Object3D[] {
+function isSolidShape(object: Drawn): boolean {
+  return object.isMesh === true && object.isLineSegments2 !== true;
+}
+
+function missesBox(object: Object3D, box: Box3): boolean {
+  const part = objectBox(object);
+  return part !== null && !part.intersectsBox(box);
+}
+
+function outsideFocus(content: Object3D, focus: readonly Object3D[], box: Box3): Object3D[] {
   const largest = Math.max(...box.getSize(new Vector3()).toArray());
   const near = box.clone().expandByScalar(largest * FOCUS_MARGIN);
-  const far: Object3D[] = [];
+  const outside = new Set<Object3D>();
+  const kept: Object3D[] = [];
   content.traverseVisible((object) => {
     if (!isDrawn(object)) return;
-    if (focus.some((root) => isWithin(object, root) || isWithin(root, object))) return;
-    const part = objectBox(object);
-    if (part && !part.intersectsBox(near)) far.push(object);
+    if (focus.some((root) => isWithin(object, root) || isWithin(root, object))) {
+      kept.push(object);
+      return;
+    }
+    if (isSolidShape(object) || missesBox(object, near)) outside.add(object);
+    else kept.push(object);
   });
-  return far;
+  kept.forEach((object) => {
+    for (let node = object.parent; node && node !== content; node = node.parent) {
+      outside.delete(node);
+    }
+  });
+  return [...outside];
 }
 
 function hide(object: Object3D, hidden: Object3D[]): void {
@@ -215,7 +234,7 @@ export function prepareArScene(shell: SceneShell): ArScene {
   const focus = shell.arFocus().filter((object) => isWithin(object, content));
   const box = fitBox(focus.length > 0 ? focus : [content]);
   if (focus.length > 0 && !box.isEmpty()) {
-    farFromFocus(content, focus, box).forEach((object) => hide(object, hidden));
+    outsideFocus(content, focus, box).forEach((object) => hide(object, hidden));
   }
   const size = box.isEmpty() ? new Vector3() : box.getSize(new Vector3());
   const largest = Math.max(size.x, size.y, size.z);

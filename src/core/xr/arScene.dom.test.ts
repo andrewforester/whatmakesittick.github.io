@@ -183,20 +183,45 @@ describe('prepareArScene', () => {
     expect(points.visible).toBe(false);
   });
 
-  it('hides what lies far from the focus and keeps what is close', () => {
+  it('hides every mesh outside the focus and keeps only effects close to it', () => {
     const { shell, mechanism, focus } = buildFixture();
-    const far = new Mesh(new BoxGeometry(1, 1, 1), new MeshBasicMaterial());
-    far.position.set(50, 3, 0);
-    const near = new Mesh(new BoxGeometry(0.5, 0.5, 0.5), new MeshBasicMaterial());
-    near.position.set(2.6, 3, 0);
-    shell.scene.add(far, near);
+    const pier = new Mesh(new BoxGeometry(0.5, 0.5, 0.5), new MeshBasicMaterial());
+    pier.position.set(2.6, 3, 0);
+    const spray = new Points(
+      new BufferGeometry().setFromPoints([new Vector3(2.2, 3, 0)]),
+      new PointsMaterial(),
+    );
+    const cloud = new Points(
+      new BufferGeometry().setFromPoints([new Vector3(50, 3, 0)]),
+      new PointsMaterial(),
+    );
+    shell.scene.add(pier, spray, cloud);
     focus.push(mechanism);
     const ar = prepareArScene(shell);
-    expect(far.visible).toBe(false);
-    expect(near.visible).toBe(true);
+    expect(pier.visible).toBe(false);
+    expect(cloud.visible).toBe(false);
+    expect(spray.visible).toBe(true);
     expect(mechanism.visible).toBe(true);
     ar.restore();
-    expect(far.visible).toBe(true);
+    expect(pier.visible).toBe(true);
+    expect(cloud.visible).toBe(true);
+    expect(spray.visible).toBe(true);
+  });
+
+  it('keeps a mesh that holds an effect it keeps', () => {
+    const { shell, mechanism, focus } = buildFixture();
+    const hull = new Mesh(new BoxGeometry(1, 1, 1), new MeshBasicMaterial());
+    hull.position.set(50, 3, 0);
+    const wake = new Points(
+      new BufferGeometry().setFromPoints([new Vector3(-48, 0, 0)]),
+      new PointsMaterial(),
+    );
+    hull.add(wake);
+    shell.scene.add(hull);
+    focus.push(mechanism);
+    prepareArScene(shell);
+    expect(wake.visible).toBe(true);
+    expect(hull.visible).toBe(true);
   });
 
   it('restores the scene as it was', () => {
