@@ -14,6 +14,7 @@ export function mountNavalDroneScene(shell: SceneShell, store: NavalDroneStore):
   const removeFrame = shell.onFrame((deltaSeconds) => navalDrone.update(deltaSeconds));
   const labelVisibility = createLabelVisibility(shell, LABEL_PRIORITY);
   const unbind = bindStore(store, { navalDrone, labelVisibility, ...shell });
+  shell.setArFocus(navalDrone.arFocus());
   return () => {
     removeFrame();
     labelVisibility.dispose();

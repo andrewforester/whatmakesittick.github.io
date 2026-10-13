@@ -69,6 +69,10 @@ export class NavalDroneController {
     );
   }
 
+  arFocus(): readonly Object3D[] {
+    return this.assembly ? [this.assembly.anchor('boat')] : [];
+  }
+
   dispose(): void {
     this.cancelWarmUp();
     this.assembly?.root.removeFromParent();
