@@ -30,6 +30,7 @@ interface Fixture {
   light: DirectionalLight;
   points: Points<BufferGeometry, PointsMaterial>;
   labelLayer: HTMLElement;
+  focus: Object3D[];
 }
 
 const POINT_SIZE = 2;
@@ -58,8 +59,15 @@ function buildFixture(): Fixture {
   const labelLayer = document.createElement('div');
   labelLayer.className = 'scene-label-layer';
   element.append(document.createElement('canvas'), labelLayer);
-  const shell = { scene, stage, materials, viewport: { element } } as unknown as SceneShell;
-  return { shell, mechanism, backdrop, light, points, labelLayer };
+  const focus: Object3D[] = [];
+  const shell = {
+    scene,
+    stage,
+    materials,
+    viewport: { element },
+    arFocus: () => focus,
+  } as unknown as SceneShell;
+  return { shell, mechanism, backdrop, light, points, labelLayer, focus };
 }
 
 interface Snapshot {
@@ -145,6 +153,50 @@ describe('prepareArScene', () => {
     shell.scene.add(ground, cloud, volume);
     const ar = prepareArScene(shell);
     expect(ar.fitScale).toBeCloseTo(AR_MODEL_SIZE / 4);
+  });
+
+  it('fits the focus alone when the explainer names one', () => {
+    const { shell, mechanism, focus } = buildFixture();
+    const ship = new Mesh(new BoxGeometry(30, 30, 30), new MeshBasicMaterial());
+    ship.position.set(200, 0, 0);
+    shell.scene.add(ship);
+    focus.push(mechanism);
+    const ar = prepareArScene(shell);
+    expect(ar.fitScale).toBeCloseTo(AR_MODEL_SIZE / 4);
+    shell.scene.updateMatrixWorld(true);
+    const box = new Box3().setFromObject(mechanism);
+    expect(Math.max(...box.getSize(new Vector3()).toArray())).toBeCloseTo(AR_MODEL_SIZE);
+    expect(box.min.y).toBeCloseTo(0);
+    expect(box.getCenter(new Vector3()).x).toBeCloseTo(0);
+  });
+
+  it('fits the whole focus when it has no solid parts', () => {
+    const { shell, points, focus } = buildFixture();
+    const cloud = new Points(
+      new BufferGeometry().setFromPoints([new Vector3(0, 0, 0), new Vector3(10, 0, 0)]),
+      new PointsMaterial(),
+    );
+    shell.scene.add(cloud);
+    focus.push(cloud);
+    const ar = prepareArScene(shell);
+    expect(ar.fitScale).toBeCloseTo(AR_MODEL_SIZE / 10);
+    expect(points.visible).toBe(false);
+  });
+
+  it('hides what lies far from the focus and keeps what is close', () => {
+    const { shell, mechanism, focus } = buildFixture();
+    const far = new Mesh(new BoxGeometry(1, 1, 1), new MeshBasicMaterial());
+    far.position.set(50, 3, 0);
+    const near = new Mesh(new BoxGeometry(0.5, 0.5, 0.5), new MeshBasicMaterial());
+    near.position.set(2.6, 3, 0);
+    shell.scene.add(far, near);
+    focus.push(mechanism);
+    const ar = prepareArScene(shell);
+    expect(far.visible).toBe(false);
+    expect(near.visible).toBe(true);
+    expect(mechanism.visible).toBe(true);
+    ar.restore();
+    expect(far.visible).toBe(true);
   });
 
   it('restores the scene as it was', () => {

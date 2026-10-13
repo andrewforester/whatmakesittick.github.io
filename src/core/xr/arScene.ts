@@ -21,6 +21,7 @@ export const AR_MODEL_SIZE = 0.5;
 
 const LABEL_LAYER_SELECTOR = '.scene-label-layer';
 const SOLID_OPACITY = 0.5;
+const FOCUS_MARGIN = 0.1;
 
 export interface ArScene {
   anchor: Group;
@@ -84,6 +85,42 @@ function unionBox(roots: readonly Object3D[], counts: (object: Object3D) => bool
 function fitBox(roots: readonly Object3D[]): Box3 {
   const solid = unionBox(roots, isSolid);
   return solid.isEmpty() ? unionBox(roots, () => true) : solid;
+}
+
+type Drawn = Object3D & {
+  isMesh?: boolean;
+  isPoints?: boolean;
+  isLine?: boolean;
+  isSprite?: boolean;
+};
+
+function isDrawn(object: Drawn): boolean {
+  return (
+    object.isMesh === true ||
+    object.isPoints === true ||
+    object.isLine === true ||
+    object.isSprite === true
+  );
+}
+
+function isWithin(object: Object3D, root: Object3D): boolean {
+  for (let node: Object3D | null = object; node; node = node.parent) {
+    if (node === root) return true;
+  }
+  return false;
+}
+
+function farFromFocus(content: Object3D, focus: readonly Object3D[], box: Box3): Object3D[] {
+  const largest = Math.max(...box.getSize(new Vector3()).toArray());
+  const near = box.clone().expandByScalar(largest * FOCUS_MARGIN);
+  const far: Object3D[] = [];
+  content.traverseVisible((object) => {
+    if (!isDrawn(object)) return;
+    if (focus.some((root) => isWithin(object, root) || isWithin(root, object))) return;
+    const part = objectBox(object);
+    if (part && !part.intersectsBox(near)) far.push(object);
+  });
+  return far;
 }
 
 function hide(object: Object3D, hidden: Object3D[]): void {
@@ -175,7 +212,11 @@ export function prepareArScene(shell: SceneShell): ArScene {
   let restored = false;
 
   content.updateWorldMatrix(true, true);
-  const box = fitBox([content]);
+  const focus = shell.arFocus().filter((object) => isWithin(object, content));
+  const box = fitBox(focus.length > 0 ? focus : [content]);
+  if (focus.length > 0 && !box.isEmpty()) {
+    farFromFocus(content, focus, box).forEach((object) => hide(object, hidden));
+  }
   const size = box.isEmpty() ? new Vector3() : box.getSize(new Vector3());
   const largest = Math.max(size.x, size.y, size.z);
   const fitScale = largest > 0 ? AR_MODEL_SIZE / largest : 1;

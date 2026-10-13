@@ -1,5 +1,5 @@
 import { Color, Fog, Scene } from 'three';
-import type { Quaternion, Vector3 } from 'three';
+import type { Object3D, Quaternion, Vector3 } from 'three';
 import type { PartInfo } from '../explainer';
 import { THEME } from '../theme';
 import { CameraRig } from './camera';
@@ -53,6 +53,8 @@ export interface SceneShell {
   lighting: Lighting;
   onFrame(update: FrameUpdate): () => void;
   invalidate(): void;
+  setArFocus(objects: readonly Object3D[]): void;
+  arFocus(): readonly Object3D[];
 }
 
 export interface PlaybackSource {
@@ -137,6 +139,7 @@ export function createSceneHost(
   let loop: Loop | undefined;
   let playback: PlaybackSource | undefined;
   let savedRig: SavedRig | undefined;
+  let arFocus: readonly Object3D[] = [];
   let lastXrTime: number | undefined;
   let needsRender = true;
   let disposed = false;
@@ -174,6 +177,10 @@ export function createSceneHost(
       return () => updates.delete(update);
     },
     invalidate,
+    setArFocus: (objects) => {
+      arFocus = [...objects];
+    },
+    arFocus: () => arFocus,
   };
 
   const advance = (source: PlaybackSource, deltaSeconds: number): number => {
