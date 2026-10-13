@@ -22,6 +22,7 @@ export const AR_MODEL_SIZE = 0.5;
 const LABEL_LAYER_SELECTOR = '.scene-label-layer';
 const SOLID_OPACITY = 0.5;
 const FOCUS_MARGIN = 0.1;
+const HIDDEN_LAYER = 31;
 
 export interface ArScene {
   anchor: Group;
@@ -70,11 +71,15 @@ function isSolid(object: Shaped): boolean {
   return list.some(isSolidMaterial);
 }
 
+function isLayerHidden(object: Object3D): boolean {
+  return object.layers.isEnabled(HIDDEN_LAYER);
+}
+
 function unionBox(roots: readonly Object3D[], counts: (object: Object3D) => boolean): Box3 {
   const box = new Box3();
   roots.forEach((root) =>
     root.traverseVisible((object) => {
-      if (!counts(object)) return;
+      if (isLayerHidden(object) || !counts(object)) return;
       const part = objectBox(object);
       if (part && !part.isEmpty()) box.union(part);
     }),
@@ -126,7 +131,7 @@ function outsideFocus(content: Object3D, focus: readonly Object3D[], box: Box3):
   const outside = new Set<Object3D>();
   const kept: Object3D[] = [];
   content.traverseVisible((object) => {
-    if (!isDrawn(object)) return;
+    if (!isDrawn(object) || isLayerHidden(object)) return;
     if (focus.some((root) => isWithin(object, root) || isWithin(root, object))) {
       kept.push(object);
       return;
@@ -142,10 +147,12 @@ function outsideFocus(content: Object3D, focus: readonly Object3D[], box: Box3):
   return [...outside];
 }
 
-function hide(object: Object3D, hidden: Object3D[]): void {
-  if (!object.visible) return;
-  object.visible = false;
-  hidden.push(object);
+function hide(root: Object3D, masks: Map<Object3D, number>): void {
+  root.traverse((object) => {
+    if (!isDrawn(object) || masks.has(object)) return;
+    masks.set(object, object.layers.mask);
+    object.layers.set(HIDDEN_LAYER);
+  });
 }
 
 type RenderHook = Object3D['onBeforeRender'];
@@ -209,7 +216,7 @@ export function prepareArScene(shell: SceneShell): ArScene {
   const fog: Fog | FogExp2 | null = scene.fog;
   const labelLayer = viewport.element.querySelector<HTMLElement>(LABEL_LAYER_SELECTOR);
   const labelsHidden = labelLayer?.hidden ?? false;
-  const hidden: Object3D[] = [];
+  const hidden = new Map<Object3D, number>();
   const anchor = new Group();
   const content = new Group();
   anchor.add(content);
@@ -255,8 +262,8 @@ export function prepareArScene(shell: SceneShell): ArScene {
       anchor.removeFromParent();
       restorePointSizes();
       moveBack(scene, content, moved);
-      hidden.forEach((object) => {
-        object.visible = true;
+      hidden.forEach((mask, object) => {
+        object.layers.mask = mask;
       });
       scene.background = background;
       scene.fog = fog;

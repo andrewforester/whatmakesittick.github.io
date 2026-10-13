@@ -34,6 +34,19 @@ interface Fixture {
 }
 
 const POINT_SIZE = 2;
+const AR_HIDDEN_LAYER = 31;
+
+function rendered(object: Object3D): boolean {
+  return object.layers.isEnabled(0);
+}
+
+function drawnParts(root: Object3D): Object3D[] {
+  const parts: Object3D[] = [];
+  root.traverse((object) => {
+    if (object instanceof Mesh || object instanceof Points) parts.push(object);
+  });
+  return parts;
+}
 
 function buildFixture(): Fixture {
   const scene = new Scene();
@@ -78,6 +91,7 @@ interface Snapshot {
   scale: Vector3;
   quaternion: Quaternion;
   visible: boolean;
+  mask: number;
 }
 
 function snapshot(scene: Scene): Snapshot[] {
@@ -92,6 +106,7 @@ function snapshot(scene: Scene): Snapshot[] {
       scale: object.scale.clone(),
       quaternion: object.quaternion.clone(),
       visible: object.visible,
+      mask: object.layers.mask,
     });
   });
   return result;
@@ -101,8 +116,9 @@ describe('prepareArScene', () => {
   it('hides the backdrop, stage, fog, background and labels', () => {
     const { shell, backdrop, labelLayer } = buildFixture();
     prepareArScene(shell);
-    expect(backdrop.visible).toBe(false);
-    expect(shell.stage.group.visible).toBe(false);
+    expect(rendered(backdrop)).toBe(false);
+    expect(drawnParts(shell.stage.group).length).toBeGreaterThan(0);
+    drawnParts(shell.stage.group).forEach((part) => expect(rendered(part)).toBe(false));
     expect(shell.scene.fog).toBeNull();
     expect(shell.scene.background).toBeNull();
     expect(labelLayer.hidden).toBe(true);
@@ -126,7 +142,7 @@ describe('prepareArScene', () => {
     shell.scene.updateMatrixWorld(true);
     const box = new Box3();
     ar.content.traverseVisible((object) => {
-      if (object instanceof Mesh) box.expandByObject(object);
+      if (object instanceof Mesh && rendered(object)) box.expandByObject(object);
     });
     const size = box.getSize(new Vector3());
     expect(Math.max(size.x, size.y, size.z)).toBeCloseTo(AR_MODEL_SIZE);
@@ -180,7 +196,7 @@ describe('prepareArScene', () => {
     focus.push(cloud);
     const ar = prepareArScene(shell);
     expect(ar.fitScale).toBeCloseTo(AR_MODEL_SIZE / 10);
-    expect(points.visible).toBe(false);
+    expect(rendered(points)).toBe(false);
   });
 
   it('hides every mesh outside the focus and keeps only effects close to it', () => {
@@ -198,14 +214,14 @@ describe('prepareArScene', () => {
     shell.scene.add(pier, spray, cloud);
     focus.push(mechanism);
     const ar = prepareArScene(shell);
-    expect(pier.visible).toBe(false);
-    expect(cloud.visible).toBe(false);
-    expect(spray.visible).toBe(true);
-    expect(mechanism.visible).toBe(true);
+    expect(rendered(pier)).toBe(false);
+    expect(rendered(cloud)).toBe(false);
+    expect(rendered(spray)).toBe(true);
+    expect(rendered(mechanism)).toBe(true);
     ar.restore();
-    expect(pier.visible).toBe(true);
-    expect(cloud.visible).toBe(true);
-    expect(spray.visible).toBe(true);
+    expect(rendered(pier)).toBe(true);
+    expect(rendered(cloud)).toBe(true);
+    expect(rendered(spray)).toBe(true);
   });
 
   it('keeps a mesh that holds an effect it keeps', () => {
@@ -220,8 +236,8 @@ describe('prepareArScene', () => {
     shell.scene.add(hull);
     focus.push(mechanism);
     prepareArScene(shell);
-    expect(wake.visible).toBe(true);
-    expect(hull.visible).toBe(true);
+    expect(rendered(wake)).toBe(true);
+    expect(rendered(hull)).toBe(true);
   });
 
   it('restores the scene as it was', () => {
@@ -248,6 +264,39 @@ describe('prepareArScene', () => {
     expect(backdrop.visible).toBe(false);
     expect(shell.stage.group.visible).toBe(false);
     expect(labelLayer.hidden).toBe(true);
+  });
+
+  it('hides with a layer the AR cameras never draw and never touches visibility', () => {
+    const { shell, backdrop, mechanism, focus } = buildFixture();
+    const pier = new Mesh(new BoxGeometry(0.5, 0.5, 0.5), new MeshBasicMaterial());
+    const rail = new Mesh(new BoxGeometry(0.1, 0.1, 0.1), new MeshBasicMaterial());
+    pier.position.set(40, 3, 0);
+    pier.add(rail);
+    shell.scene.add(pier);
+    focus.push(mechanism);
+    prepareArScene(shell);
+    [backdrop, pier, rail].forEach((object) => {
+      expect(object.visible).toBe(true);
+      expect(object.layers.mask).toBe(2 ** AR_HIDDEN_LAYER);
+    });
+  });
+
+  it('keeps hidden what the explainer shows again during AR', () => {
+    const { shell, backdrop } = buildFixture();
+    backdrop.visible = false;
+    prepareArScene(shell);
+    backdrop.visible = true;
+    expect(rendered(backdrop)).toBe(false);
+  });
+
+  it('keeps what the explainer hid during AR hidden after restore', () => {
+    const { shell, backdrop } = buildFixture();
+    const mask = backdrop.layers.mask;
+    const ar = prepareArScene(shell);
+    backdrop.visible = false;
+    ar.restore();
+    expect(backdrop.visible).toBe(false);
+    expect(backdrop.layers.mask).toBe(mask);
   });
 
   it('scales point sizes with the model only while a point cloud draws', () => {

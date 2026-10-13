@@ -429,8 +429,11 @@ into one `content` group under the placed `anchor`. It hides the stage, every me
 the `backdrop` group, the background, the fog and the label layer. It then fits the
 model: the box of the solid meshes is scaled to 0.5 m (`AR_MODEL_SIZE`) on its longest side
 and stands on the floor at its centre. A solid mesh has a material that is not a shader
-material and is opaque or at least half opaque. `restore()` puts every object back in its old
-place and order. While AR is active an explainer adds new objects to its own roots, never
+material and is opaque or at least half opaque. To hide an object, AR moves every mesh,
+points, line and sprite in it to layer 31 alone. Neither the page camera nor the XR eye
+cameras draw that layer. AR never sets `visible`, so an explainer can keep setting it from
+its state during the session. `restore()` puts back each layer mask and every object in its
+old place and order. While AR is active an explainer adds new objects to its own roots, never
 to `scene`, or they would sit outside the placed model.
 
 `shell.setArFocus(objects)` names the objects AR should show, for a subject that lives
