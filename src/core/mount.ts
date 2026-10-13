@@ -17,6 +17,7 @@ import { mountReadouts } from './ui/readouts';
 import { mountSafeArea } from './ui/safeArea';
 import { mountSections } from './ui/sections';
 import { mountStageExpansion, stageShortcuts } from './ui/stageExpansion';
+import type { StageExpansion } from './ui/stageExpansion';
 import { mountArButton } from './xr/button';
 import { isArSupported } from './xr/support';
 
@@ -53,7 +54,12 @@ function mountScene<S extends Playback>(
   };
 }
 
-function mountAr(root: Document, host: SceneHost, enabled: boolean): () => void {
+function mountAr(
+  root: Document,
+  host: SceneHost,
+  expansion: StageExpansion,
+  enabled: boolean,
+): () => void {
   const element = requireElement(root, STAGE_SELECTOR);
   let starting = false;
   return mountArButton(root, {
@@ -63,7 +69,7 @@ function mountAr(root: Document, host: SceneHost, enabled: boolean): () => void 
       if (starting) return;
       starting = true;
       import('./xr/enter')
-        .then(({ enterAr }) => enterAr(host, element))
+        .then(({ enterAr }) => enterAr(host, element, expansion))
         .catch(() => {})
         .finally(() => {
           starting = false;
@@ -92,7 +98,7 @@ export async function mountExplainer<S extends Playback>(
   mountSections(document, store, Object.keys(explainer.presets), stage);
   mountSafeArea(document, explainer.scene?.gaugeSide);
   const scene = mountScene(document, store, explainer);
-  const unmountAr = mountAr(document, scene.host, explainer.scene?.ar !== false);
+  const unmountAr = mountAr(document, scene.host, stage, explainer.scene?.ar !== false);
   return () => {
     unmountAr();
     scene.unmount();

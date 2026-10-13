@@ -2,6 +2,7 @@ import { Group, Matrix4, Scene } from 'three';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initI18n, t } from '../i18n';
 import type { FrameUpdate, SceneHost } from '../scene/shell';
+import type { StageExpansion } from '../ui/stageExpansion';
 import { prepareArScene } from './arScene';
 import type { ArScene } from './arScene';
 import { enterAr } from './enter';
@@ -79,7 +80,30 @@ function frameWith(
   return {
     getHitTestResults: () => hits,
     getHitTestResultsForTransientInput: () => touches,
+    getViewerPose: () => undefined,
   } as unknown as XRFrame;
+}
+
+function fakeExpansion(expanded: boolean): StageExpansion {
+  const listeners = new Set<(expanded: boolean) => void>();
+  let isExpanded = expanded;
+  return {
+    get expanded() {
+      return isExpanded;
+    },
+    toggle: vi.fn(),
+    collapse: vi.fn(() => {
+      setTimeout(() => {
+        isExpanded = false;
+        listeners.forEach((listener) => listener(false));
+      }, 0);
+    }),
+    onChange: (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    dispose: vi.fn(),
+  };
 }
 
 function buildFixture(reject = false): Fixture {
@@ -202,7 +226,7 @@ describe('AR session', () => {
     vi.useFakeTimers();
     const fixture = buildFixture(true);
     Object.defineProperty(navigator, 'xr', { value: fixture.system, configurable: true });
-    await enterAr(fixture.host, stage());
+    await enterAr(fixture.host, stage(), fakeExpansion(false));
     const message = element('[data-ar-message]');
     expect(fixture.host.xr.enter).not.toHaveBeenCalled();
     expect(prepareArScene).not.toHaveBeenCalled();
@@ -347,5 +371,54 @@ describe('AR session', () => {
     expect(fixture.host.xr.enter).not.toHaveBeenCalled();
     expect(fixture.session.end).toHaveBeenCalled();
     expect(stage().hasAttribute('data-ar')).toBe(false);
+  });
+
+  it('collapses the expanded stage before it asks for a session', async () => {
+    const fixture = buildFixture();
+    Object.defineProperty(navigator, 'xr', { value: fixture.system, configurable: true });
+    const expansion = fakeExpansion(true);
+    await enterAr(fixture.host, stage(), expansion);
+    const [collapsed] = vi.mocked(expansion.collapse).mock.invocationCallOrder;
+    const [requested] = fixture.requestSession.mock.invocationCallOrder;
+    expect(expansion.expanded).toBe(false);
+    expect(collapsed).toBeLessThan(requested ?? 0);
+    expect(fixture.host.xr.enter).toHaveBeenCalledOnce();
+  });
+
+  it('restores the page, ends the session and says so when the viewer space is refused', async () => {
+    const fixture = buildFixture();
+    fixture.session.requestReferenceSpace.mockRejectedValueOnce(new Error('no viewer'));
+    Object.defineProperty(navigator, 'xr', { value: fixture.system, configurable: true });
+    await enterAr(fixture.host, stage(), fakeExpansion(false));
+    expect(fixture.session.end).toHaveBeenCalled();
+    expect(fixture.host.xr.enter).not.toHaveBeenCalled();
+    expect(fixture.manager.enabled).toBe(false);
+    expect(fixture.controls.enabled).toBe(true);
+    expect(stage().hasAttribute('data-ar')).toBe(false);
+    expect(element('[data-ar-ui]').hidden).toBe(true);
+    const message = element('[data-ar-message]');
+    expect(message.hidden).toBe(false);
+    expect(message.textContent).toBe(t('ar.failed'));
+  });
+
+  it('stops the one finger drag while two inputs are down', async () => {
+    const fixture = await placed();
+    const first = {} as XRInputSource;
+    const second = {} as XRInputSource;
+    const { anchor } = fixture.arScene;
+    const touch = (at: typeof HIT) =>
+      frameWith([], [{ inputSource: first, results: [hitResult(at)] }]);
+    fixture.session.dispatchEvent(inputEvent('selectstart', first));
+    fixture.session.dispatchEvent(inputEvent('selectstart', second));
+    runFrame(fixture, touch({ x: 0.5, y: 0, z: -1.2 }));
+    runFrame(fixture, touch({ x: 2, y: 0, z: 1 }));
+    expect(anchor.position.toArray()).toEqual([HIT.x, HIT.y, HIT.z]);
+  });
+
+  it('keeps a tap on the exit button from reaching the session', async () => {
+    await started();
+    const event = new Event('beforexrselect', { bubbles: true, cancelable: true });
+    element('[data-control="ar-exit"]').dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
   });
 });

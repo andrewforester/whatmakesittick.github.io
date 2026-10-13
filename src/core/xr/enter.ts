@@ -1,6 +1,7 @@
 import './ar.css';
 import type { SceneHost } from '../scene/shell';
 import { requireElement } from '../ui/dom';
+import type { StageExpansion } from '../ui/stageExpansion';
 import { startArSession, writeCopy } from './session';
 
 const MESSAGE_SELECTOR = '[data-ar-message]';
@@ -22,10 +23,27 @@ function showFailure(message: HTMLElement): void {
   messageTimer = setTimeout(() => hideMessage(message), MESSAGE_MS);
 }
 
-export async function enterAr(host: SceneHost, stage: HTMLElement): Promise<void> {
+function collapse(expansion: StageExpansion): Promise<void> {
+  if (!expansion.expanded) return Promise.resolve();
+  return new Promise((resolve) => {
+    const stop = expansion.onChange((expanded) => {
+      if (expanded) return;
+      stop();
+      resolve();
+    });
+    expansion.collapse();
+  });
+}
+
+export async function enterAr(
+  host: SceneHost,
+  stage: HTMLElement,
+  expansion: StageExpansion,
+): Promise<void> {
   if (host.xr.active) return;
   const message = requireElement(stage, MESSAGE_SELECTOR);
   hideMessage(message);
+  await collapse(expansion);
   const xr = navigator.xr;
   if (!xr) {
     showFailure(message);
