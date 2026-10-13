@@ -158,6 +158,7 @@ interface SceneOptions {
     distance?: { min?: number; max?: number }; // zoom limits in world units
   };
   highlight?: { dim?: Partial<DimStyle>; undimmed?: string[] }; // how dimmed parts look, groups that never dim
+  ar?: boolean; // "View in your room" button, true by default; false turns augmented reality off
 }
 
 interface Explainer<S extends Playback = Playback> {
@@ -396,6 +397,51 @@ returns the ones the last `attach` used. What only one explainer binds stays in
 its `bindings.ts`: the engine rebuilds on a new layout and applies the
 compression ratio, subscribed before `bindPresets` so a rebuilt engine is framed;
 the glider swaps its glider type.
+
+### Augmented reality
+
+On a phone that supports WebXR the reader can place the model in their room. The stage
+has a round "View in your room" button (`data-control="ar"`, `stage.ar`), hidden until
+`isArSupported` in `src/core/xr/support.ts` gets a yes from
+`navigator.xr.isSessionSupported('immersive-ar')`. `mountArButton` in `button.ts` shows it.
+An explainer turns this off with `scene.ar: false`. These two small modules and the
+wiring in `mount.ts` are all that loads with the page. A tap on the button loads
+`src/core/xr/enter.ts` with a dynamic `import()`, so the rest of `src/core/xr` and
+`ar.css` stay in their own chunk. `enterAr` collapses an expanded stage, asks for an
+`immersive-ar` session with hit testing, and shows `ar.failed` for a few seconds when the
+phone refuses. The AR copy lives in the core locales: `stage.ar` for the button and `ar.*`
+for the hints, the exit button and the failure.
+
+The scene host has `host.xr` in `src/core/scene/shell.ts`. `enter()` saves the camera
+pose and what it follows, stops the frame loop, pauses the viewport's resize and hands
+the frames to the WebXR animation loop. That loop still ticks the store and runs the
+frame updates, and draws every frame. `exit()` undoes all of it, and `active` says
+whether AR is on.
+
+`prepareArScene` in `arScene.ts` moves every scene child except the stage and the lights
+into one `content` group under the placed `anchor`. It hides the stage, every mesh in
+the `backdrop` group, the background, the fog and the label layer. It then fits the
+model: the box of the solid meshes is scaled to 0.5 m (`AR_MODEL_SIZE`) on its longest side
+and stands on the floor at its centre. A solid mesh has a material that is not a shader
+material and is opaque or at least half opaque. `restore()` puts every object back in its old
+place and order. While AR is active an explainer adds new objects to its own roots, never
+to `scene`, or they would sit outside the placed model.
+
+`shell.setArFocus(objects)` names the objects AR should show, for a subject that lives
+in a big world, like a drone over terrain. The fit then uses their box alone, and AR
+hides every other mesh, plus any points, line or sprite whose box misses the focus box
+grown by a tenth of its size. An object inside a focus root, or one that holds it, stays.
+An explainer calls `setArFocus` from `mountScene`; `shell.arFocus()` reads it back.
+
+In AR the camera's near and far planes are 0.01 m and 20 m (`setArDepth` in `depth.ts`),
+and the orbit controls are off. A reticle follows the floor or a table; a tap places the
+model, one finger drags it, a pinch scales it from 0.25 to 4 times its fitted size and a
+twist turns it. The dock and the gauge stay usable over the camera view.
+
+`?ar-preview` on a page in dev runs `prepareArScene` on a grey background with the camera
+framed on the 0.5 m cube, so the AR view can be checked on a desktop.
+`e2e/tools/ar-preview.spec.ts` takes one screenshot per explainer in that mode, into
+`QA_OUT`, or for one explainer with `SLUG`.
 
 ## UI toolkit
 
@@ -695,7 +741,9 @@ of every explainer from `virtual:explainer-catalogue`, and the page head uses
 The build prerenders each language (see "Build"), so the HTML a crawler fetches is
 already in the page's language. Detection prefers the `/<lang>/` path prefix, then
 the `?lang=` query, kept for old links and translated at runtime, then the stored
-choice and the browser language. Detection never stores what it finds, so a visit
+choice and the browser language. `detectLanguage` in `src/core/i18n/detect.ts` reads them
+in that order and takes the first one the site ships, `pt-BR` as `pt`, or English when none
+matches. Detection never stores what it finds, so a visit
 to a shared `/uk/` link does not change later visits; only the language dropdown
 writes the stored choice. On an English URL without `?lang=`, when the stored
 choice or the browser picks another language the page ships, the page opens that
