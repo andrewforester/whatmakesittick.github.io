@@ -1,0 +1,97 @@
+.stage[data-ar] {
+  --stage-height: 100dvh;
+  --ar-top: max(var(--stage-inset), env(safe-area-inset-top));
+  --ar-right: max(var(--stage-inset), env(safe-area-inset-right));
+  --ar-bottom: max(var(--stage-inset), env(safe-area-inset-bottom));
+  --ar-left: max(var(--stage-inset), env(safe-area-inset-left));
+
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  touch-action: none;
+}
+
+.stage[data-ar] #scene,
+.stage[data-ar] .stage-expand,
+.stage[data-ar] .stage-ar {
+  display: none;
+}
+
+.stage[data-ar] .gauge {
+  top: var(--ar-top);
+  right: var(--ar-right);
+}
+
+.stage[data-ar] .dock {
+  right: var(--ar-right);
+  bottom: var(--ar-bottom);
+  left: var(--ar-left);
+}
+
+.ar-ui {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.ar-ui[hidden],
+.ar-message[hidden] {
+  display: none;
+}
+
+.ar-exit {
+  position: absolute;
+  top: var(--ar-top);
+  left: var(--ar-left);
+  min-height: 40px;
+  padding: 0 16px;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  pointer-events: auto;
+}
+
+.ar-hint,
+.ar-message {
+  position: absolute;
+  left: 50%;
+  width: max-content;
+  max-width: min(22rem, calc(100% - 2 * var(--gutter)));
+  margin: 0;
+  padding: 10px 16px;
+  color: var(--text);
+  font-size: 0.9375rem;
+  line-height: 1.4;
+  text-align: center;
+  transform: translateX(-50%);
+}
+
+.ar-hint {
+  top: calc(50% + 72px);
+}
+
+.ar-hint[data-faded] {
+  opacity: 0;
+}
+
+.ar-message {
+  top: 50%;
+  z-index: 6;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--glass);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: var(--shadow);
+  transform: translate(-50%, -50%);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ar-hint {
+    transition: opacity 400ms ease;
+  }
+}
