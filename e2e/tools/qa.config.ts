@@ -12,7 +12,7 @@ const SOFTWARE_WEBGL_FLAGS = [
 
 export default defineConfig({
   testDir: '.',
-  testMatch: /explainer-qa\.spec\.ts/,
+  testMatch: /(explainer-qa|ar-preview)\.spec\.ts/,
   timeout: TEST_TIMEOUT_MS,
   fullyParallel: false,
   workers: 1,
