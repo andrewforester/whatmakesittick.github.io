@@ -5,6 +5,7 @@ import { TEXT_ATTRIBUTE } from '../i18n/markup';
 import type { Point } from '../scene/labelLayout';
 import type { SceneHost } from '../scene/shell';
 import { requireElement } from '../ui/dom';
+import { TAKEOVER_ATTRIBUTE } from '../ui/stageExpansion';
 import { prepareArScene } from './arScene';
 import type { ArScene } from './arScene';
 import { pinchScale, touchAngle, touchDistance, twistYaw } from './gestures';
@@ -260,6 +261,7 @@ async function begin(host: SceneHost, stage: HTMLElement, session: XRSession): P
     controls.enabled = controlsEnabled;
     stage.removeAttribute(AR_ATTRIBUTE);
     overlay.ui.hidden = true;
+    stage.removeAttribute(TAKEOVER_ATTRIBUTE);
   };
 
   xr.addEventListener('sessionend', teardown);
@@ -291,11 +293,17 @@ export async function startArSession(
   stage: HTMLElement,
   xr: XRSystem,
 ): Promise<ArSession> {
-  const session = await xr.requestSession(AR_MODE, {
-    requiredFeatures: ['hit-test'],
-    optionalFeatures: ['dom-overlay', FLOOR_SPACE],
-    domOverlay: { root: stage },
-  });
+  stage.setAttribute(TAKEOVER_ATTRIBUTE, '');
+  const session = await xr
+    .requestSession(AR_MODE, {
+      requiredFeatures: ['hit-test'],
+      optionalFeatures: ['dom-overlay', FLOOR_SPACE],
+      domOverlay: { root: stage },
+    })
+    .catch((error: unknown) => {
+      stage.removeAttribute(TAKEOVER_ATTRIBUTE);
+      throw error;
+    });
   const end = () => session.end().catch(() => {});
   try {
     await begin(host, stage, session);

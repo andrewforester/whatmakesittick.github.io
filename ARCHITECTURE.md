@@ -412,6 +412,12 @@ wiring in `mount.ts` are all that loads with the page. A tap on the button loads
 phone refuses. The AR copy lives in the core locales: `stage.ar` for the button and `ar.*`
 for the hints, the exit button and the failure.
 
+From just before the session request until the session ends, the stage carries
+`data-takeover` (`TAKEOVER_ATTRIBUTE` in `stageExpansion.ts`). Chrome makes the overlay
+root the full screen element, so the stage expansion ignores full screen changes while it
+is set. The chapter tracker applies no preset while it is set, as in expanded mode, and
+applies none when it goes away.
+
 The scene host has `host.xr` in `src/core/scene/shell.ts`. `enter()` saves the camera
 pose and what it follows, stops the frame loop, pauses the viewport's resize and hands
 the frames to the WebXR animation loop. That loop still ticks the store and runs the

@@ -14,6 +14,8 @@ export interface StageExpansion {
   dispose(): void;
 }
 
+export const TAKEOVER_ATTRIBUTE = 'data-takeover';
+
 const STAGE_SELECTOR = '[data-stage]';
 const BUTTON_SELECTOR = '[data-control="expand"]';
 const EXPANDED_ATTRIBUTE = 'data-stage-expanded';
@@ -94,6 +96,7 @@ class StageExpander implements StageExpansion {
   };
 
   private readonly onFullscreenChange = (): void => {
+    if (this.stage.hasAttribute(TAKEOVER_ATTRIBUTE)) return;
     if (!this.isFullscreen()) this.finishCollapse();
     else if (!this.isExpanded) this.root.exitFullscreen().catch(ignoreRejection);
   };

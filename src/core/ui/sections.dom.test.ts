@@ -73,6 +73,16 @@ describe('reading-line sections beside an expanded stage', () => {
     expect(state.applyPreset).not.toHaveBeenCalled();
   });
 
+  it('leaves the chapter alone while the stage is taken over and after it is given back', () => {
+    const stage = document.querySelector('[data-stage]');
+    const before = latestObserver();
+    stage?.setAttribute('data-takeover', '');
+    latestObserver().cross(chapter('detail'));
+    stage?.removeAttribute('data-takeover');
+    expect(state.applyPreset).not.toHaveBeenCalled();
+    expect(latestObserver()).toBe(before);
+  });
+
   it('measures the reading line again after the stage collapses', () => {
     const beforeExpanding = latestObserver();
     setExpanded(true);

@@ -1,6 +1,7 @@
 import type { ExplainerStore } from '../explainer';
 import { queryAll, requireElement } from './dom';
 import { parseOption } from './parse';
+import { TAKEOVER_ATTRIBUTE } from './stageExpansion';
 import type { StageExpansion } from './stageExpansion';
 import { debounce } from './throttle';
 
@@ -41,6 +42,7 @@ export function mountSections(
   }));
   const desktop = window.matchMedia(DESKTOP_QUERY);
   let observer: IntersectionObserver | undefined;
+  const isTaken = () => expansion.expanded || stage.hasAttribute(TAKEOVER_ATTRIBUTE);
 
   const activate = (chapter: Chapter) => {
     markActive(chapters, chapter);
@@ -49,14 +51,14 @@ export function mountSections(
   };
 
   const onIntersect = (entries: IntersectionObserverEntry[]) => {
-    if (expansion.expanded) return;
+    if (isTaken()) return;
     const crossing = entries.filter((entry) => entry.isIntersecting).at(-1);
     const chapter = chapters.find((candidate) => candidate.element === crossing?.target);
     if (chapter) activate(chapter);
   };
 
   const observe = () => {
-    if (expansion.expanded) return;
+    if (isTaken()) return;
     observer?.disconnect();
     observer = new IntersectionObserver(onIntersect, {
       rootMargin: readingLineMargin(stage, desktop.matches),

@@ -208,6 +208,7 @@ function expectTornDown(fixture: Fixture): void {
   expect(fixture.manager.enabled).toBe(false);
   expect(fixture.controls.enabled).toBe(true);
   expect(stage().hasAttribute('data-ar')).toBe(false);
+  expect(stage().hasAttribute('data-takeover')).toBe(false);
   expect(element('[data-ar-ui]').hidden).toBe(true);
   expect(fixture.frames.size).toBe(0);
   expect(fixture.session.viewerSource.cancel).toHaveBeenCalled();
@@ -238,6 +239,7 @@ describe('AR session', () => {
     expect(prepareArScene).not.toHaveBeenCalled();
     expect(fixture.manager.enabled).toBe(false);
     expect(stage().hasAttribute('data-ar')).toBe(false);
+    expect(stage().hasAttribute('data-takeover')).toBe(false);
     expect(message.hidden).toBe(false);
     expect(message.textContent).toBe(t('ar.failed'));
     vi.advanceTimersByTime(4000);
@@ -252,6 +254,20 @@ describe('AR session', () => {
       domOverlay: { root: stage() },
     });
     expect(fixture.manager.setReferenceSpaceType).toHaveBeenCalledWith('local-floor');
+  });
+
+  it('takes over the stage before it asks for a session and keeps it until the end', async () => {
+    const fixture = buildFixture();
+    let takenOver = false;
+    fixture.requestSession.mockImplementation(() => {
+      takenOver = stage().hasAttribute('data-takeover');
+      return Promise.resolve(fixture.session);
+    });
+    await startArSession(fixture.host, stage(), fixture.system);
+    expect(takenOver).toBe(true);
+    expect(stage().hasAttribute('data-takeover')).toBe(true);
+    fixture.manager.dispatchEvent(new Event('sessionend'));
+    expect(stage().hasAttribute('data-takeover')).toBe(false);
   });
 
   it('hands the scene to the session and shows the overlay', async () => {
@@ -400,6 +416,7 @@ describe('AR session', () => {
     expect(fixture.host.xr.enter).not.toHaveBeenCalled();
     expect(fixture.session.end).toHaveBeenCalled();
     expect(stage().hasAttribute('data-ar')).toBe(false);
+    expect(stage().hasAttribute('data-takeover')).toBe(false);
   });
 
   it('collapses the expanded stage before it asks for a session', async () => {

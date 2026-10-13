@@ -192,6 +192,17 @@ describe('stage expansion', () => {
     expect(stage.expanded).toBe(false);
   });
 
+  it('keeps the full screen of an AR overlay while the stage is taken over', () => {
+    stubFullscreenApi(grantFullscreen);
+    stageElement().setAttribute('data-takeover', '');
+    setFullscreenElement(stageElement());
+    expect(document.exitFullscreen).not.toHaveBeenCalled();
+    expect(stage.expanded).toBe(false);
+
+    setFullscreenElement(null);
+    expect(stage.expanded).toBe(false);
+  });
+
   it('lets go of the page and the button on dispose', () => {
     button().click();
     stage.dispose();
