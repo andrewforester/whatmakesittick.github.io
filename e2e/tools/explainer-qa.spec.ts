@@ -8,7 +8,7 @@ import { dockBox, emptyReadouts, hasHorizontalOverflow, untranslatedCopy } from 
 const SLUG = process.env.SLUG ?? '';
 const OUT = process.env.QA_OUT ?? '';
 const LANGUAGES = (process.env.QA_LANGUAGES ?? 'en,uk,ja').split(',') as LanguageCode[];
-const CHAPTER_COUNT = 6;
+const CHAPTER_COUNT = Number(process.env.QA_CHAPTERS ?? '6');
 const MID_CYCLE = 0.5;
 const GAUGE = '[data-gauge]';
 
