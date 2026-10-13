@@ -8,6 +8,7 @@ import { requireElement } from '../ui/dom';
 import { prepareArScene } from './arScene';
 import type { ArScene } from './arScene';
 import { pinchScale, touchAngle, touchDistance, twistYaw } from './gestures';
+import { setArDepth } from './depth';
 import { createPlacement } from './placement';
 
 export interface ArSession {
@@ -244,6 +245,7 @@ async function begin(host: SceneHost, stage: HTMLElement, session: XRSession): P
   const controlsEnabled = controls.enabled;
   let arScene: ArScene | undefined;
   let stopTracking = () => {};
+  let restoreDepth = () => {};
   let ended = false;
 
   const teardown = () => {
@@ -253,6 +255,7 @@ async function begin(host: SceneHost, stage: HTMLElement, session: XRSession): P
     stopTracking();
     arScene?.restore();
     host.xr.exit();
+    restoreDepth();
     xr.enabled = false;
     controls.enabled = controlsEnabled;
     stage.removeAttribute(AR_ATTRIBUTE);
@@ -271,6 +274,7 @@ async function begin(host: SceneHost, stage: HTMLElement, session: XRSession): P
     if (ended) return;
     if (!reference) throw new Error('The AR session has no reference space');
     arScene = prepareArScene(shell);
+    restoreDepth = setArDepth(shell.rig.camera);
     host.xr.enter();
     controls.enabled = false;
     stopTracking = track(host, stage, session, overlay, arScene, { reference, viewer });

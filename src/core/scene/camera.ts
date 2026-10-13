@@ -104,6 +104,14 @@ export class CameraRig {
     this.notifyChange();
   }
 
+  floor(): number {
+    return this.floorHeight;
+  }
+
+  setFloor(height: number): void {
+    this.floorHeight = height;
+  }
+
   setDistanceLimits(limits: CameraDistance): void {
     this.distanceOverride = limits;
     this.updateDistanceLimits();

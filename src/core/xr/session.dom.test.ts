@@ -1,4 +1,4 @@
-import { Group, Matrix4, Scene, Vector3 } from 'three';
+import { Group, Matrix4, PerspectiveCamera, Scene, Vector3 } from 'three';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initI18n, t } from '../i18n';
 import type { FrameUpdate, SceneHost } from '../scene/shell';
@@ -24,6 +24,8 @@ const PAGE = `
 `;
 
 const FIT_SCALE = 0.1;
+const PAGE_NEAR = 2;
+const PAGE_FAR = 5000;
 const HIT = { x: 0.4, y: 0, z: -1.2 };
 
 class FakeXrManager extends EventTarget {
@@ -62,6 +64,7 @@ interface Fixture {
   system: XRSystem;
   requestSession: ReturnType<typeof vi.fn>;
   controls: { enabled: boolean };
+  camera: PerspectiveCamera;
   frames: Set<FrameUpdate>;
   scene: Scene;
   arScene: ArScene;
@@ -115,6 +118,7 @@ function buildFixture(reject = false): Fixture {
   );
   const system = { requestSession } as unknown as XRSystem;
   const controls = { enabled: true };
+  const camera = new PerspectiveCamera(50, 1, PAGE_NEAR, PAGE_FAR);
   const frames = new Set<FrameUpdate>();
   const scene = new Scene();
   const restore = vi.fn();
@@ -129,7 +133,7 @@ function buildFixture(reject = false): Fixture {
   const host = {
     shell: {
       scene,
-      rig: { controls },
+      rig: { controls, camera },
       viewport: { renderer: { xr: manager } },
       onFrame: (update: FrameUpdate) => {
         frames.add(update);
@@ -148,6 +152,7 @@ function buildFixture(reject = false): Fixture {
     system,
     requestSession,
     controls,
+    camera,
     frames,
     scene,
     arScene,
@@ -259,6 +264,29 @@ describe('AR session', () => {
     expect(element('[data-ar-ui]').hidden).toBe(false);
     expect(element('[data-ar-hint]').textContent).toBe(t('ar.find'));
     expect(fixture.arScene.anchor.visible).toBe(false);
+  });
+
+  it('gives the camera a near depth range for the session and puts it back after', async () => {
+    const fixture = buildFixture();
+    const { camera } = fixture;
+    const seen: number[][] = [];
+    vi.mocked(fixture.host.xr.enter).mockImplementation(() => {
+      seen.push([camera.near, camera.far]);
+    });
+    vi.mocked(fixture.host.xr.exit).mockImplementation(() => {
+      seen.push([camera.near, camera.far]);
+    });
+    await startArSession(fixture.host, stage(), fixture.system);
+    expect(camera.projectionMatrix.elements[10]).toBeCloseTo(-(20 + 0.01) / (20 - 0.01));
+    fixture.manager.dispatchEvent(new Event('sessionend'));
+    expect(seen).toEqual([
+      [0.01, 20],
+      [0.01, 20],
+    ]);
+    expect([camera.near, camera.far]).toEqual([PAGE_NEAR, PAGE_FAR]);
+    expect(camera.projectionMatrix.elements[10]).toBeCloseTo(
+      -(PAGE_FAR + PAGE_NEAR) / (PAGE_FAR - PAGE_NEAR),
+    );
   });
 
   it('falls back to a local space when the floor is not granted', async () => {
