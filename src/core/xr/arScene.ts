@@ -7,6 +7,8 @@ import type {
   InstancedMesh,
   Material,
   Object3D,
+  Points,
+  PointsMaterial,
   Texture,
 } from 'three';
 import { UNDIMMED_GROUP } from '../scene/materials';
@@ -69,6 +71,46 @@ function hide(object: Object3D, hidden: Object3D[]): void {
   hidden.push(object);
 }
 
+type RenderHook = Object3D['onBeforeRender'];
+
+function isAttenuated(material: Material): material is PointsMaterial {
+  return (
+    (material as PointsMaterial).isPointsMaterial === true &&
+    (material as PointsMaterial).sizeAttenuation
+  );
+}
+
+function scalePointSizes(content: Object3D): () => void {
+  const restores: (() => void)[] = [];
+  content.traverse((object) => {
+    if (!(object as Points).isPoints) return;
+    const before: RenderHook = object.onBeforeRender;
+    const after: RenderHook = object.onAfterRender;
+    const sizes = new Map<PointsMaterial, number>();
+    object.onBeforeRender = function (this: Object3D, ...args: Parameters<RenderHook>) {
+      before.apply(this, args);
+      const material = args[4];
+      if (!isAttenuated(material)) return;
+      sizes.set(material, material.size);
+      material.size *= object.matrixWorld.getMaxScaleOnAxis();
+    };
+    object.onAfterRender = function (this: Object3D, ...args: Parameters<RenderHook>) {
+      const material = args[4];
+      const size = isAttenuated(material) ? sizes.get(material) : undefined;
+      if (size !== undefined && isAttenuated(material)) {
+        material.size = size;
+        sizes.delete(material);
+      }
+      after.apply(this, args);
+    };
+    restores.push(() => {
+      object.onBeforeRender = before;
+      object.onAfterRender = after;
+    });
+  });
+  return () => restores.forEach((restore) => restore());
+}
+
 function moveBack(scene: Object3D, moved: readonly Moved[]): void {
   [...moved]
     .sort((a, b) => a.index - b.index)
@@ -103,6 +145,7 @@ export function prepareArScene(shell: SceneShell): ArScene {
   scene.background = null;
   scene.fog = null;
   if (labelLayer) labelLayer.hidden = true;
+  const restorePointSizes = scalePointSizes(content);
 
   const box = visibleBox(content);
   const size = box.isEmpty() ? new Vector3() : box.getSize(new Vector3());
@@ -120,6 +163,7 @@ export function prepareArScene(shell: SceneShell): ArScene {
     fitScale,
     restore: () => {
       anchor.removeFromParent();
+      restorePointSizes();
       moveBack(scene, moved);
       hidden.forEach((object) => {
         object.visible = true;

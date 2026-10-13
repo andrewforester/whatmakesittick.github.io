@@ -1,17 +1,21 @@
 import {
   Box3,
   BoxGeometry,
+  BufferGeometry,
   Color,
   DirectionalLight,
   Fog,
+  Group,
   Mesh,
   MeshBasicMaterial,
   PlaneGeometry,
+  Points,
+  PointsMaterial,
   Scene,
   Texture,
   Vector3,
 } from 'three';
-import type { Object3D } from 'three';
+import type { Camera, Object3D, WebGLRenderer } from 'three';
 import { describe, expect, it } from 'vitest';
 import { MaterialLibrary, UNDIMMED_GROUP } from '../scene/materials';
 import type { SceneShell } from '../scene/shell';
@@ -23,8 +27,11 @@ interface Fixture {
   mechanism: Mesh;
   backdrop: Mesh;
   light: DirectionalLight;
+  points: Points<BufferGeometry, PointsMaterial>;
   labelLayer: HTMLElement;
 }
+
+const POINT_SIZE = 2;
 
 function buildFixture(): Fixture {
   const scene = new Scene();
@@ -39,13 +46,17 @@ function buildFixture(): Fixture {
   materials.register(UNDIMMED_GROUP, ground);
   const backdrop = new Mesh(new PlaneGeometry(200, 200), [new MeshBasicMaterial(), ground]);
   backdrop.position.set(5, -2, 0);
-  scene.add(light, stage.group, mechanism, backdrop);
+  const points = new Points(
+    new BufferGeometry().setFromPoints([new Vector3(0, 3, 0)]),
+    new PointsMaterial({ size: POINT_SIZE, sizeAttenuation: true }),
+  );
+  scene.add(light, stage.group, mechanism, backdrop, points);
   const element = document.createElement('div');
   const labelLayer = document.createElement('div');
   labelLayer.className = 'scene-label-layer';
   element.append(document.createElement('canvas'), labelLayer);
   const shell = { scene, stage, materials, viewport: { element } } as unknown as SceneShell;
-  return { shell, mechanism, backdrop, light, labelLayer };
+  return { shell, mechanism, backdrop, light, points, labelLayer };
 }
 
 interface Snapshot {
@@ -136,5 +147,30 @@ describe('prepareArScene', () => {
     expect(backdrop.visible).toBe(false);
     expect(shell.stage.group.visible).toBe(false);
     expect(labelLayer.hidden).toBe(true);
+  });
+
+  it('scales point sizes with the model only while a point cloud draws', () => {
+    const { shell, points } = buildFixture();
+    const ar = prepareArScene(shell);
+    shell.scene.updateMatrixWorld(true);
+    const renderer = {} as WebGLRenderer;
+    const camera = {} as Camera;
+    const group = new Group();
+    const { geometry, material } = points;
+    points.onBeforeRender(renderer, shell.scene, camera, geometry, material, group);
+    expect(material.size).toBeCloseTo(POINT_SIZE * ar.fitScale);
+    points.onAfterRender(renderer, shell.scene, camera, geometry, material, group);
+    expect(material.size).toBe(POINT_SIZE);
+  });
+
+  it('puts back the original render hooks', () => {
+    const { shell, points } = buildFixture();
+    const before = points.onBeforeRender;
+    const after = points.onAfterRender;
+    const ar = prepareArScene(shell);
+    expect(points.onBeforeRender).not.toBe(before);
+    ar.restore();
+    expect(points.onBeforeRender).toBe(before);
+    expect(points.onAfterRender).toBe(after);
   });
 });
