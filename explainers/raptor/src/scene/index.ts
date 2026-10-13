@@ -14,6 +14,7 @@ export function mountRaptorScene(shell: SceneShell, store: RaptorStore): () => v
   const removeFrame = shell.onFrame((deltaSeconds) => raptor.update(deltaSeconds));
   const labelVisibility = createLabelVisibility(shell, LABEL_PRIORITY);
   const unbind = bindStore(store, { raptor, labelVisibility, ...shell });
+  shell.setArFocus(raptor.arFocus());
   return () => {
     removeFrame();
     labelVisibility.dispose();

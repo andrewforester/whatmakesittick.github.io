@@ -208,6 +208,10 @@ export class RaptorAssembly implements Assembly {
     return regionFromSpec(REGIONS[id]).applyMatrix4(this.root.matrixWorld);
   }
 
+  arFocus(): readonly Object3D[] {
+    return [this.engine];
+  }
+
   dispose(): void {
     this.root.removeFromParent();
     this.materials.clearRegistered();

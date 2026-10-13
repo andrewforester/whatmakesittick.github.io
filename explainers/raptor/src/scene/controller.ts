@@ -59,6 +59,10 @@ export class RaptorController {
     );
   }
 
+  arFocus(): readonly Object3D[] {
+    return this.assembly?.arFocus() ?? [];
+  }
+
   dispose(): void {
     this.cancelWarmUp();
     this.assembly?.root.removeFromParent();
