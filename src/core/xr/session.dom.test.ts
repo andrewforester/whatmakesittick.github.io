@@ -1,4 +1,4 @@
-import { Group, Matrix4, Scene } from 'three';
+import { Group, Matrix4, Scene, Vector3 } from 'three';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initI18n, t } from '../i18n';
 import type { FrameUpdate, SceneHost } from '../scene/shell';
@@ -76,11 +76,12 @@ function hitResult(at: typeof HIT): XRHitTestResult {
 function frameWith(
   hits: XRHitTestResult[],
   touches: { inputSource: XRInputSource; results: XRHitTestResult[] }[] = [],
+  viewer?: typeof HIT,
 ): XRFrame {
   return {
     getHitTestResults: () => hits,
     getHitTestResultsForTransientInput: () => touches,
-    getViewerPose: () => undefined,
+    getViewerPose: () => viewer && { transform: { position: viewer } },
   } as unknown as XRFrame;
 }
 
@@ -399,6 +400,18 @@ describe('AR session', () => {
     const message = element('[data-ar-message]');
     expect(message.hidden).toBe(false);
     expect(message.textContent).toBe(t('ar.failed'));
+  });
+
+  it('turns the front of the model towards the viewer when placed', async () => {
+    const fixture = await started();
+    const viewer = { x: HIT.x + 1, y: 1.5, z: HIT.z };
+    runFrame(fixture, frameWith([hitResult(HIT)], [], viewer));
+    fixture.session.dispatchEvent(inputEvent('select', {} as XRInputSource));
+    const { anchor } = fixture.arScene;
+    expect(anchor.rotation.y).toBeCloseTo(Math.PI / 2);
+    const front = new Vector3(0, 0, 1).applyEuler(anchor.rotation);
+    expect(front.x).toBeCloseTo(1);
+    expect(front.z).toBeCloseTo(0);
   });
 
   it('stops the one finger drag while two inputs are down', async () => {

@@ -77,6 +77,10 @@ function preventSelect(event: Event): void {
   event.preventDefault();
 }
 
+function faceViewer(at: Vector3, viewer: DOMPointReadOnly): number {
+  return Math.atan2(viewer.x - at.x, viewer.z - at.z);
+}
+
 function watchTwist(stage: HTMLElement, anchor: Group, enabled: () => boolean): Twist {
   const pointers = new Map<number, Point>();
   let start: TwistStart | undefined;
@@ -149,6 +153,7 @@ function track(
   let placed = false;
   let surfaceFound = false;
   let lastHit: Matrix4 | undefined;
+  let viewer: DOMPointReadOnly | undefined;
   let dragOffset: Vector3 | undefined;
   let fadeTimer: ReturnType<typeof setTimeout> | undefined;
   const twist = watchTwist(stage, anchor, () => placed);
@@ -161,6 +166,7 @@ function track(
   const place = () => {
     if (!lastHit) return;
     anchor.position.setFromMatrixPosition(lastHit);
+    anchor.rotation.y = viewer ? faceViewer(anchor.position, viewer) : 0;
     anchor.visible = true;
     placed = true;
     placement.reticle.visible = false;
@@ -170,6 +176,7 @@ function track(
 
   const findSurface = (frame: XRFrame) => {
     lastHit = placement.update(frame);
+    viewer = frame.getViewerPose(spaces.reference)?.transform.position;
     if (!lastHit || surfaceFound) return;
     surfaceFound = true;
     writeCopy(hint, 'ar.place');
