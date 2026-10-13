@@ -12,12 +12,13 @@ import {
   Points,
   PointsMaterial,
   Scene,
+  ShaderMaterial,
   Texture,
   Vector3,
 } from 'three';
 import type { Camera, Object3D, Quaternion, WebGLRenderer } from 'three';
 import { describe, expect, it } from 'vitest';
-import { MaterialLibrary, UNDIMMED_GROUP } from '../scene/materials';
+import { MaterialLibrary, STRUCTURE_GROUP, UNDIMMED_GROUP } from '../scene/materials';
 import type { SceneShell } from '../scene/shell';
 import { Stage } from '../scene/stage';
 import { AR_MODEL_SIZE, prepareArScene } from './arScene';
@@ -125,6 +126,25 @@ describe('prepareArScene', () => {
     expect(center.x).toBeCloseTo(0);
     expect(center.z).toBeCloseTo(0);
     expect(box.min.y).toBeCloseTo(0);
+  });
+
+  it('fits the solid parts and leaves out shader ground, point clouds and faint volumes', () => {
+    const { shell } = buildFixture();
+    const groundMaterial = new ShaderMaterial();
+    shell.materials.register(STRUCTURE_GROUP, groundMaterial);
+    const ground = new Mesh(new PlaneGeometry(100, 100), groundMaterial);
+    ground.rotation.x = -Math.PI / 2;
+    const cloud = new Points(
+      new BufferGeometry().setFromPoints([new Vector3(-50, 0, -50), new Vector3(50, 40, 50)]),
+      new PointsMaterial(),
+    );
+    const volume = new Mesh(
+      new BoxGeometry(60, 60, 60),
+      new MeshBasicMaterial({ transparent: true, opacity: 0.3 }),
+    );
+    shell.scene.add(ground, cloud, volume);
+    const ar = prepareArScene(shell);
+    expect(ar.fitScale).toBeCloseTo(AR_MODEL_SIZE / 4);
   });
 
   it('restores the scene as it was', () => {

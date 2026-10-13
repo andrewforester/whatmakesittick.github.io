@@ -6,9 +6,11 @@ import type {
   FogExp2,
   InstancedMesh,
   Material,
+  Mesh,
   Object3D,
   Points,
   PointsMaterial,
+  ShaderMaterial,
   Texture,
 } from 'three';
 import { UNDIMMED_GROUP } from '../scene/materials';
@@ -18,6 +20,7 @@ import type { SceneShell } from '../scene/shell';
 export const AR_MODEL_SIZE = 0.5;
 
 const LABEL_LAYER_SELECTOR = '.scene-label-layer';
+const SOLID_OPACITY = 0.5;
 
 export interface ArScene {
   anchor: Group;
@@ -55,14 +58,32 @@ function objectBox(object: Shaped): Box3 | null {
   return geometry.boundingBox?.clone().applyMatrix4(object.matrixWorld) ?? null;
 }
 
-function visibleBox(root: Object3D): Box3 {
-  root.updateWorldMatrix(true, true);
+function isSolidMaterial(material: Material): boolean {
+  if ((material as ShaderMaterial).isShaderMaterial) return false;
+  return !material.transparent || material.opacity >= SOLID_OPACITY;
+}
+
+function isSolid(object: Shaped): boolean {
+  if (!(object as Mesh).isMesh || !object.material) return false;
+  const list = Array.isArray(object.material) ? object.material : [object.material];
+  return list.some(isSolidMaterial);
+}
+
+function unionBox(roots: readonly Object3D[], counts: (object: Object3D) => boolean): Box3 {
   const box = new Box3();
-  root.traverseVisible((object) => {
-    const part = objectBox(object);
-    if (part && !part.isEmpty()) box.union(part);
-  });
+  roots.forEach((root) =>
+    root.traverseVisible((object) => {
+      if (!counts(object)) return;
+      const part = objectBox(object);
+      if (part && !part.isEmpty()) box.union(part);
+    }),
+  );
   return box;
+}
+
+function fitBox(roots: readonly Object3D[]): Box3 {
+  const solid = unionBox(roots, isSolid);
+  return solid.isEmpty() ? unionBox(roots, () => true) : solid;
 }
 
 function hide(object: Object3D, hidden: Object3D[]): void {
@@ -153,7 +174,8 @@ export function prepareArScene(shell: SceneShell): ArScene {
   const restorePointSizes = scalePointSizes(content);
   let restored = false;
 
-  const box = visibleBox(content);
+  content.updateWorldMatrix(true, true);
+  const box = fitBox([content]);
   const size = box.isEmpty() ? new Vector3() : box.getSize(new Vector3());
   const largest = Math.max(size.x, size.y, size.z);
   const fitScale = largest > 0 ? AR_MODEL_SIZE / largest : 1;
