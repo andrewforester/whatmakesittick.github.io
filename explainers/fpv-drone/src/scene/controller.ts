@@ -68,6 +68,10 @@ export class FpvController {
     return reach <= GOGGLES_EYE_REACH;
   }
 
+  arFocus(): readonly Object3D[] {
+    return this.assembly ? [this.assembly.anchor('drone')] : [];
+  }
+
   dispose(): void {
     this.cancelWarmUp();
     this.assembly?.root.removeFromParent();

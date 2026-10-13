@@ -22,6 +22,7 @@ export function mountFpvScene(shell: SceneShell, store: FpvStore): () => void {
   });
   const labelVisibility = createLabelVisibility(shell, LABEL_PRIORITY);
   const unbind = bindStore(store, { drone, labelVisibility, ...shell });
+  shell.setArFocus(drone.arFocus());
   return () => {
     removeFrame();
     labelVisibility.dispose();
