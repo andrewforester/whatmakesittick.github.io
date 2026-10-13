@@ -13,6 +13,7 @@ export const SCENE_OPTIONS: SceneOptions = {
   background: HAZE.colour,
   fog: { color: HAZE.colour, near: HAZE.near, far: HAZE.far },
   stage: false,
+  ar: false,
   camera: {
     near: SCENE_LIMITS.cameraNear,
     far: SCENE_LIMITS.cameraFar,
