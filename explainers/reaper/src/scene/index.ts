@@ -14,6 +14,7 @@ export function mountReaperScene(shell: SceneShell, store: ReaperStore): () => v
   const removeFrame = shell.onFrame((deltaSeconds) => reaper.update(deltaSeconds));
   const labelVisibility = createLabelVisibility(shell, LABEL_PRIORITY);
   const unbind = bindStore(store, { reaper, labelVisibility, ...shell });
+  shell.setArFocus(reaper.arFocus());
   return () => {
     removeFrame();
     labelVisibility.dispose();

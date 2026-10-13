@@ -65,6 +65,10 @@ export class ReaperController {
     );
   }
 
+  arFocus(): readonly Object3D[] {
+    return this.assembly ? [this.assembly.anchor('aircraft')] : [];
+  }
+
   dispose(): void {
     this.cancelWarmUp();
     this.assembly?.root.removeFromParent();
