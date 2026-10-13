@@ -4,6 +4,7 @@
   --ar-right: max(var(--stage-inset), env(safe-area-inset-right));
   --ar-bottom: max(var(--stage-inset), env(safe-area-inset-bottom));
   --ar-left: max(var(--stage-inset), env(safe-area-inset-left));
+  --ar-exit-height: 40px;
 
   position: fixed;
   inset: 0;
@@ -20,8 +21,19 @@
 }
 
 .stage[data-ar] .gauge {
-  top: var(--ar-top);
+  top: calc(var(--ar-top) + var(--ar-exit-height) + var(--stage-overlay-gap));
   right: var(--ar-right);
+  left: var(--ar-left);
+  display: flex;
+  padding: 8px 12px;
+}
+
+.stage[data-ar] .readouts {
+  display: grid;
+  flex: 1;
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  gap: 6px 12px;
+  min-width: 0;
 }
 
 .stage[data-ar] .dock {
@@ -46,7 +58,7 @@
   position: absolute;
   top: var(--ar-top);
   left: var(--ar-left);
-  min-height: 40px;
+  min-height: var(--ar-exit-height);
   padding: 0 16px;
   color: var(--text);
   font: inherit;
