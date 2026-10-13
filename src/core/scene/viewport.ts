@@ -10,6 +10,7 @@ export interface Viewport {
   element: HTMLElement;
   onResize(listener: (size: ViewportSize) => void): () => void;
   render(scene: Scene, camera: Camera): void;
+  setPaused(paused: boolean): void;
   dispose(): void;
 }
 
@@ -58,7 +59,9 @@ export function createViewport(container: HTMLElement): Viewport {
 
   const listeners = new Listeners<[size: ViewportSize]>();
   let size: ViewportSize = { width: 1, height: 1, safe: readSafeArea(container, 1, 1) };
+  let paused = false;
   const resize = () => {
+    if (paused) return;
     const width = Math.max(1, element.clientWidth);
     const height = Math.max(1, element.clientHeight);
     size = { width, height, safe: readSafeArea(container, width, height) };
@@ -83,6 +86,11 @@ export function createViewport(container: HTMLElement): Viewport {
     render: (scene, camera) => {
       renderer.render(scene, camera);
       labels.render(scene, camera);
+    },
+    setPaused: (value) => {
+      if (paused === value) return;
+      paused = value;
+      resize();
     },
     dispose: () => {
       observer.disconnect();

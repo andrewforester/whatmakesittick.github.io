@@ -26,6 +26,11 @@ function twistAboutUp(turn: Quaternion): Quaternion {
   return turn.lengthSq() > 0 ? turn.normalize() : turn.identity();
 }
 
+export interface FollowState {
+  anchor: Object3D | null;
+  mode: FollowMode;
+}
+
 export interface CameraDistance {
   min?: number;
   max?: number;
@@ -111,6 +116,10 @@ export class CameraRig {
     this.camera.up.copy(WORLD_UP);
     this.syncAnchor();
     this.notifyChange();
+  }
+
+  following(): FollowState {
+    return { anchor: this.anchor, mode: this.followMode };
   }
 
   jumpTo(pose: CameraPose): void {

@@ -1,8 +1,9 @@
 import { Color, Fog, Scene } from 'three';
+import type { Quaternion, Vector3 } from 'three';
 import type { PartInfo } from '../explainer';
 import { THEME } from '../theme';
 import { CameraRig } from './camera';
-import type { CameraOptions } from './camera';
+import type { CameraOptions, FollowState } from './camera';
 import { MAX_FRAME_SECONDS } from './constants';
 import { Highlighter } from './highlight';
 import { LabelOcclusion } from './labelOcclusion';
@@ -59,8 +60,15 @@ export interface PlaybackSource {
   subscribe(listener: () => void): () => void;
 }
 
+export interface XrMode {
+  enter(): void;
+  exit(): void;
+  readonly active: boolean;
+}
+
 export interface SceneHost {
   shell: SceneShell;
+  xr: XrMode;
   start(playback: PlaybackSource): void;
   dispose(): void;
 }
@@ -71,6 +79,30 @@ function runUpdates(updates: ReadonlySet<FrameUpdate>, deltaSeconds: number): bo
     if (update(deltaSeconds) === true) moving = true;
   });
   return moving;
+}
+
+interface SavedRig {
+  position: Vector3;
+  quaternion: Quaternion;
+  target: Vector3;
+  follow: FollowState;
+}
+
+const MILLISECONDS_PER_SECOND = 1000;
+
+function saveRig(rig: CameraRig): SavedRig {
+  return {
+    position: rig.camera.position.clone(),
+    quaternion: rig.camera.quaternion.clone(),
+    target: rig.controls.target.clone(),
+    follow: rig.following(),
+  };
+}
+
+function restoreRig(rig: CameraRig, saved: SavedRig): void {
+  rig.jumpTo({ position: saved.position, target: saved.target });
+  rig.camera.quaternion.copy(saved.quaternion);
+  rig.follow(saved.follow.anchor, saved.follow.mode);
 }
 
 function createScene(options: SceneOptions): Scene {
@@ -103,6 +135,9 @@ export function createSceneHost(
   });
   const updates = new Set<FrameUpdate>();
   let loop: Loop | undefined;
+  let playback: PlaybackSource | undefined;
+  let savedRig: SavedRig | undefined;
+  let lastXrTime: number | undefined;
   let needsRender = true;
   let disposed = false;
   let stopPlayback = () => {};
@@ -141,15 +176,20 @@ export function createSceneHost(
     invalidate,
   };
 
-  const renderFrame = (playback: PlaybackSource, deltaSeconds: number) => {
+  const advance = (source: PlaybackSource, deltaSeconds: number): number => {
     const step = Math.min(deltaSeconds, MAX_FRAME_SECONDS);
-    playback.getState().tick(step);
+    source.getState().tick(step);
     if (runUpdates(updates, step)) invalidate();
     if (highlighter.update(step)) {
       occlusion.invalidate();
       invalidate();
     }
     rig.update(step);
+    return step;
+  };
+
+  const renderFrame = (source: PlaybackSource, deltaSeconds: number) => {
+    const step = advance(source, deltaSeconds);
     if (occlusion.update(step)) loop?.request();
     if (!needsRender) return;
     needsRender = false;
@@ -157,12 +197,52 @@ export function createSceneHost(
     labels.layout(rig.camera);
   };
 
-  const run = (playback: PlaybackSource) => {
-    if (disposed) return;
+  const startFrames = (source: PlaybackSource) => {
     loop?.stop();
+    loop = startLoop((deltaSeconds) => renderFrame(source, deltaSeconds));
+  };
+
+  const renderXrFrame = (time: number) => {
+    const deltaSeconds =
+      lastXrTime === undefined ? 0 : Math.max(0, (time - lastXrTime) / MILLISECONDS_PER_SECOND);
+    lastXrTime = time;
+    if (playback) advance(playback, deltaSeconds);
+    needsRender = false;
+    viewport.render(scene, rig.camera);
+  };
+
+  const xr: XrMode = {
+    get active() {
+      return savedRig !== undefined;
+    },
+    enter: () => {
+      if (disposed || savedRig) return;
+      savedRig = saveRig(rig);
+      loop?.stop();
+      loop = undefined;
+      lastXrTime = undefined;
+      viewport.setPaused(true);
+      viewport.renderer.setAnimationLoop(renderXrFrame);
+    },
+    exit: () => {
+      if (!savedRig) return;
+      const saved = savedRig;
+      savedRig = undefined;
+      viewport.renderer.setAnimationLoop(null);
+      viewport.setPaused(false);
+      restoreRig(rig, saved);
+      occlusion.invalidate();
+      if (playback && !disposed) startFrames(playback);
+      invalidate();
+    },
+  };
+
+  const run = (source: PlaybackSource) => {
+    if (disposed) return;
+    playback = source;
     stopPlayback();
-    loop = startLoop((deltaSeconds) => renderFrame(playback, deltaSeconds));
-    stopPlayback = playback.subscribe(invalidate);
+    if (!savedRig) startFrames(source);
+    stopPlayback = source.subscribe(invalidate);
     invalidate();
     cancelWarmUp();
     cancelWarmUp = afterFirstFrameWhenIdle(() =>
@@ -172,10 +252,13 @@ export function createSceneHost(
 
   return {
     shell,
-    start: (playback) => {
-      void viewport.renderer.compileAsync(scene, rig.camera).then(() => run(playback));
+    xr,
+    start: (source) => {
+      void viewport.renderer.compileAsync(scene, rig.camera).then(() => run(source));
     },
     dispose: () => {
+      if (savedRig) viewport.renderer.setAnimationLoop(null);
+      savedRig = undefined;
       disposed = true;
       cancelWarmUp();
       loop?.stop();
