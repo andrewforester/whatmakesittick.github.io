@@ -14,6 +14,7 @@ export function mountAtpSynthaseScene(shell: SceneShell, store: AtpSynthaseStore
   const removeFrame = shell.onFrame((deltaSeconds) => synthase.update(deltaSeconds));
   const labelVisibility = createLabelVisibility(shell, LABEL_PRIORITY);
   const unbind = bindStore(store, { synthase, labelVisibility, ...shell });
+  shell.setArFocus(synthase.arFocus());
   return () => {
     removeFrame();
     labelVisibility.dispose();

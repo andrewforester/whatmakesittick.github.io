@@ -141,6 +141,10 @@ export class SynthaseAssembly implements Assembly {
     return regionBox(id, this.state, this.frame.matrixWorld);
   }
 
+  arFocus(): readonly Object3D[] {
+    return [this.hero.object, this.seats.object];
+  }
+
   dispose(): void {
     this.root.removeFromParent();
     this.materials.clearRegistered();

@@ -1,3 +1,4 @@
+import type { Object3D } from 'three';
 import { CameraViews } from '@core/scene/cameraViews';
 import type { SceneShell } from '@core/scene/shell';
 import type { AssemblyState, RegionId } from '../ids';
@@ -44,6 +45,10 @@ export class AtpSynthaseController {
     return (
       this.assembly?.update(deltaSeconds, camera.position.distanceTo(controls.target)) ?? false
     );
+  }
+
+  arFocus(): readonly Object3D[] {
+    return this.assembly?.arFocus() ?? [];
   }
 
   dispose(): void {
