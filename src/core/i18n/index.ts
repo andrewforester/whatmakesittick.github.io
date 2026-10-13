@@ -1,12 +1,11 @@
 import i18next from 'i18next';
-import LanguageDetector from 'i18next-browser-languagedetector';
 import en from '../locales/en.json';
 import { NAMESPACE, TRANSLATION_OPTIONS } from './config';
+import { detectLanguage } from './detect';
 import { DEFAULT_LANGUAGE, LANGUAGES, baseLanguage } from './languages';
 import type { LanguageCode } from './languages';
 import { createDictionaryLoader, loadersByLanguage } from './loader';
 import type { DictionaryLoader } from './loader';
-import { LANGUAGE_QUERY_KEY } from './paths';
 import { LANGUAGE_STORAGE_KEY } from './redirect';
 import type { Dictionary, LocaleLoaders } from './resources';
 
@@ -16,8 +15,6 @@ export { shippedLanguages } from './loader';
 export { LANGUAGE_QUERY_KEY } from './paths';
 export type { Dictionary, LocaleLoader, LocaleLoaders } from './resources';
 
-const STORED_SOURCE = 'localStorage';
-const BROWSER_SOURCE = 'navigator';
 const BASE_SEGMENTS = import.meta.env.BASE_URL.split('/').filter(Boolean).length;
 
 const CORE_LOCALES: LocaleLoaders = {
@@ -29,7 +26,6 @@ const CORE_LOCALES: LocaleLoaders = {
   [DEFAULT_LANGUAGE]: () => Promise.resolve(en),
 };
 
-const detector = new LanguageDetector();
 let loadDictionary: DictionaryLoader = createDictionaryLoader([CORE_LOCALES]);
 let requestedLanguage: LanguageCode = DEFAULT_LANGUAGE;
 
@@ -41,18 +37,12 @@ async function addLanguage(code: LanguageCode): Promise<void> {
 export async function initI18n(locales: LocaleLoaders = {}): Promise<void> {
   loadDictionary = createDictionaryLoader([CORE_LOCALES, locales]);
   const fallback = await loadDictionary(DEFAULT_LANGUAGE);
-  await i18next.use(detector).init({
+  await i18next.init({
     ...TRANSLATION_OPTIONS,
+    lng: detectLanguage({ location, navigator, storage: () => localStorage }, BASE_SEGMENTS),
     resources: { [DEFAULT_LANGUAGE]: { [NAMESPACE]: fallback } },
     supportedLngs: LANGUAGES.map((language) => language.code),
     nonExplicitSupportedLngs: true,
-    detection: {
-      order: ['path', 'querystring', STORED_SOURCE, BROWSER_SOURCE],
-      lookupFromPathIndex: BASE_SEGMENTS,
-      lookupQuerystring: LANGUAGE_QUERY_KEY,
-      lookupLocalStorage: LANGUAGE_STORAGE_KEY,
-      caches: [],
-    },
   });
   await setLanguage(currentLanguage());
 }
@@ -70,7 +60,11 @@ export async function setLanguage(code: LanguageCode): Promise<void> {
 }
 
 export function rememberLanguage(code: LanguageCode): void {
-  detector.cacheUserLanguage(code, [STORED_SOURCE]);
+  try {
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, code);
+  } catch {
+    return;
+  }
 }
 
 export function onLanguageChanged(listener: (code: LanguageCode) => void): () => void {
