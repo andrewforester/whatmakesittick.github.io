@@ -32,6 +32,9 @@ function mountScene<S extends Playback>(
   );
   const unmount = explainer.mountScene(host.shell, store);
   host.start(store);
+  if (import.meta.env.DEV && new URLSearchParams(location.search).has('ar-preview')) {
+    void import('./xr/preview').then(({ startArPreview }) => startArPreview(host.shell));
+  }
   return () => {
     unmount();
     host.dispose();
