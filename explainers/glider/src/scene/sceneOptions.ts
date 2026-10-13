@@ -5,6 +5,7 @@ export const SCENE_OPTIONS: SceneOptions = {
   background: SKY_COLOR,
   fog: { color: SKY_COLOR, near: SCENE_LIMITS.fogNear, far: SCENE_LIMITS.fogFar },
   stage: false,
+  ar: false,
   camera: {
     near: SCENE_LIMITS.cameraNear,
     far: SCENE_LIMITS.cameraFar,
