@@ -12,6 +12,7 @@ const UNDIMMED = ['beacon'] as const;
 export const SCENE_OPTIONS: SceneOptions = {
   background: '#02030a',
   stage: false,
+  ar: false,
   camera: CAMERA,
   highlight: { dim: DIM, undimmed: UNDIMMED },
 };
