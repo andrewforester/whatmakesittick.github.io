@@ -15,7 +15,7 @@ import {
   Texture,
   Vector3,
 } from 'three';
-import type { Camera, Object3D, WebGLRenderer } from 'three';
+import type { Camera, Object3D, Quaternion, WebGLRenderer } from 'three';
 import { describe, expect, it } from 'vitest';
 import { MaterialLibrary, UNDIMMED_GROUP } from '../scene/materials';
 import type { SceneShell } from '../scene/shell';
@@ -42,14 +42,16 @@ function buildFixture(): Fixture {
   const light = new DirectionalLight();
   const mechanism = new Mesh(new BoxGeometry(2, 1, 4), new MeshBasicMaterial());
   mechanism.position.set(0, 3, 0);
+  mechanism.rotation.set(0, Math.PI / 2, 0);
   const ground = new MeshBasicMaterial();
   materials.register(UNDIMMED_GROUP, ground);
   const backdrop = new Mesh(new PlaneGeometry(200, 200), [new MeshBasicMaterial(), ground]);
   backdrop.position.set(5, -2, 0);
   const points = new Points(
-    new BufferGeometry().setFromPoints([new Vector3(0, 3, 0)]),
+    new BufferGeometry().setFromPoints([new Vector3(0, 1.5, 0)]),
     new PointsMaterial({ size: POINT_SIZE, sizeAttenuation: true }),
   );
+  points.scale.setScalar(2);
   scene.add(light, stage.group, mechanism, backdrop, points);
   const element = document.createElement('div');
   const labelLayer = document.createElement('div');
@@ -65,6 +67,7 @@ interface Snapshot {
   index: number;
   position: Vector3;
   scale: Vector3;
+  quaternion: Quaternion;
   visible: boolean;
 }
 
@@ -78,6 +81,7 @@ function snapshot(scene: Scene): Snapshot[] {
       index: object.parent?.children.indexOf(object) ?? -1,
       position: object.position.clone(),
       scale: object.scale.clone(),
+      quaternion: object.quaternion.clone(),
       visible: object.visible,
     });
   });
@@ -172,5 +176,27 @@ describe('prepareArScene', () => {
     ar.restore();
     expect(points.onBeforeRender).toBe(before);
     expect(points.onAfterRender).toBe(after);
+  });
+
+  it('leaves out what was taken out of the content during the session', () => {
+    const { shell, mechanism, backdrop, points, light } = buildFixture();
+    const ar = prepareArScene(shell);
+    mechanism.removeFromParent();
+    ar.restore();
+    expect(mechanism.parent).toBeNull();
+    expect(shell.scene.children).toEqual([light, shell.stage.group, backdrop, points]);
+  });
+
+  it('does nothing on a second restore', () => {
+    const { shell, mechanism } = buildFixture();
+    const ar = prepareArScene(shell);
+    ar.restore();
+    const before = snapshot(shell.scene);
+    shell.scene.background = null;
+    mechanism.visible = false;
+    ar.restore();
+    expect(shell.scene.background).toBeNull();
+    mechanism.visible = true;
+    expect(snapshot(shell.scene)).toEqual(before);
   });
 });

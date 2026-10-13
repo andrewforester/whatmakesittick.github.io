@@ -92,7 +92,7 @@ function scalePointSizes(content: Object3D): () => void {
       const material = args[4];
       if (!isAttenuated(material)) return;
       sizes.set(material, material.size);
-      material.size *= object.matrixWorld.getMaxScaleOnAxis();
+      material.size *= content.matrixWorld.getMaxScaleOnAxis();
     };
     object.onAfterRender = function (this: Object3D, ...args: Parameters<RenderHook>) {
       const material = args[4];
@@ -111,13 +111,18 @@ function scalePointSizes(content: Object3D): () => void {
   return () => restores.forEach((restore) => restore());
 }
 
-function moveBack(scene: Object3D, moved: readonly Moved[]): void {
+function moveBack(scene: Object3D, content: Object3D, moved: readonly Moved[]): void {
+  let skipped = 0;
   [...moved]
     .sort((a, b) => a.index - b.index)
     .forEach(({ object, index }) => {
+      if (object.parent !== content) {
+        skipped += 1;
+        return;
+      }
       scene.add(object);
       scene.children.splice(scene.children.indexOf(object), 1);
-      scene.children.splice(Math.min(index, scene.children.length), 0, object);
+      scene.children.splice(Math.min(index - skipped, scene.children.length), 0, object);
     });
 }
 
@@ -146,6 +151,7 @@ export function prepareArScene(shell: SceneShell): ArScene {
   scene.fog = null;
   if (labelLayer) labelLayer.hidden = true;
   const restorePointSizes = scalePointSizes(content);
+  let restored = false;
 
   const box = visibleBox(content);
   const size = box.isEmpty() ? new Vector3() : box.getSize(new Vector3());
@@ -162,9 +168,11 @@ export function prepareArScene(shell: SceneShell): ArScene {
     content,
     fitScale,
     restore: () => {
+      if (restored) return;
+      restored = true;
       anchor.removeFromParent();
       restorePointSizes();
-      moveBack(scene, moved);
+      moveBack(scene, content, moved);
       hidden.forEach((object) => {
         object.visible = true;
       });
