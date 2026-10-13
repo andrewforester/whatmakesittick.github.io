@@ -97,9 +97,11 @@ optionalFeatures: ['dom-overlay', 'local-floor'], domOverlay: { root: stage } })
    scale and twist to turn. A tap on the dock or the gauge never moves the model:
    both stop `beforexrselect` and pointer events from reaching the gesture layer.
 6. Exit: the exit button in the overlay, or the system back gesture. On the
-   session `end` event, in this order: `restore()` from `prepareArScene`,
-   `exitXr()`, `renderer.xr.enabled = false`, `data-ar` removed. The page shows
-   the same phase, speed and toggles as in AR.
+   session `end` event, in this order: `data-ar` removed and the AR controls
+   hidden, so the page layout is back before the viewport resizes; `restore()`
+   from `prepareArScene`; `exitXr()`; `renderer.xr.enabled = false`; the page
+   depth range restored; the orbit controls on again; `data-takeover` removed.
+   The page shows the same phase, speed and toggles as in AR.
 
 ### Errors
 

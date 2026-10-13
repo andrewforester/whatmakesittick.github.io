@@ -392,6 +392,16 @@ describe('AR session', () => {
     expect(fixture.scene.children).toEqual([fixture.arScene.anchor]);
   });
 
+  it('leaves the overlay layout before the page takes its size back', async () => {
+    const fixture = await started();
+    const seen: unknown[] = [];
+    vi.mocked(fixture.host.xr.exit).mockImplementation(() => {
+      seen.push(stage().hasAttribute('data-ar'), element('[data-ar-ui]').hidden);
+    });
+    fixture.manager.dispatchEvent(new Event('sessionend'));
+    expect(seen).toEqual([false, true]);
+  });
+
   it('ends the session from the exit button and restores the page', async () => {
     const fixture = await started();
     element('[data-control="ar-exit"]').click();

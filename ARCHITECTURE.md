@@ -447,6 +447,11 @@ and the orbit controls are off. A reticle follows the floor or a table; a tap pl
 model, one finger drags it, a pinch scales it from 0.25 to 4 times its fitted size and a
 twist turns it. The dock and the gauge stay usable over the camera view.
 
+When the session ends, the stage loses `data-ar` and the AR controls hide first, so the
+page layout is back before `host.xr.exit()` lets the viewport resize. Then the scene is
+restored, `host.xr.exit()` runs, `renderer.xr.enabled` goes off, the depth range and the
+orbit controls come back, and `data-takeover` goes last.
+
 `?ar-preview` on a page in dev runs `prepareArScene` on a grey background with the camera
 framed on the 0.5 m cube, so the AR view can be checked on a desktop.
 `e2e/tools/ar-preview.spec.ts` takes one screenshot per explainer in that mode, into

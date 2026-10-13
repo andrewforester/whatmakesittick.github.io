@@ -254,13 +254,13 @@ async function begin(host: SceneHost, stage: HTMLElement, session: XRSession): P
     ended = true;
     xr.removeEventListener('sessionend', teardown);
     stopTracking();
-    arScene?.restore();
-    host.xr.exit();
-    restoreDepth();
-    xr.enabled = false;
-    controls.enabled = controlsEnabled;
     stage.removeAttribute(AR_ATTRIBUTE);
     overlay.ui.hidden = true;
+    arScene?.restore();
+    host.xr.exit();
+    xr.enabled = false;
+    restoreDepth();
+    controls.enabled = controlsEnabled;
     stage.removeAttribute(TAKEOVER_ATTRIBUTE);
   };
 
