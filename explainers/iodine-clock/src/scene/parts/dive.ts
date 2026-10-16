@@ -30,14 +30,22 @@ void main() {
   float radius = length(vScreen);
   float angle = atan(vScreen.y, vScreen.x);
   float travel = uDirection > 0.0 ? uProgress : 1.0 - uProgress;
-  float streaks = pow(max(0.0, sin(angle * 23.0 + hash(vec2(floor(angle * 23.0 / 6.2832 * 23.0), 1.0)) * 6.0)), 18.0);
-  streaks *= smoothstep(0.15, 1.2, radius) * (0.4 + 0.6 * sin(radius * 9.0 - travel * 24.0));
-  vec2 cell = floor(vScreen * 7.0 + vec2(0.0, travel * 9.0));
-  vec2 local = fract(vScreen * 7.0 + vec2(0.0, travel * 9.0)) - 0.5;
-  float seed = hash(cell);
-  float bubble = seed > 0.72 ? smoothstep(0.18, 0.12, abs(length(local) - 0.22 * seed)) : 0.0;
-  vec3 colour = mix(uDeep, uColour, 0.35 + 0.65 * smoothstep(1.4, 0.0, radius));
-  colour += vec3(0.75, 0.9, 1.0) * (streaks * 0.35 + bubble * 0.45);
+  float lane = floor(angle * 9.0);
+  float streaks = pow(max(0.0, sin(angle * 57.0 + hash(vec2(lane, 2.0)) * 6.2832)), 24.0);
+  streaks *= smoothstep(0.25, 1.3, radius) * (0.5 + 0.5 * sin(radius * 7.0 - travel * 30.0));
+  float specks = 0.0;
+  for (int layer = 0; layer < 3; layer++) {
+    float depth = fract(travel * 1.4 + float(layer) / 3.0);
+    vec2 q = vScreen * mix(7.0, 0.9, depth) + float(layer) * 17.0;
+    vec2 cell = floor(q);
+    vec2 offset = vec2(hash(cell + 3.1), hash(cell + 7.7)) - 0.5;
+    float seed = hash(cell);
+    float size = 0.03 + 0.05 * seed;
+    float d = length(fract(q) - 0.5 - offset * 0.7);
+    specks += smoothstep(size, size * 0.3, d) * step(0.6, seed) * sin(3.14159 * depth);
+  }
+  vec3 colour = mix(uDeep, uColour, smoothstep(1.5, 0.0, radius));
+  colour += vec3(0.7, 0.86, 1.0) * (streaks * 0.14 + specks * 0.5);
   gl_FragColor = vec4(colour, uAmount);
   #include <colorspace_fragment>
 }

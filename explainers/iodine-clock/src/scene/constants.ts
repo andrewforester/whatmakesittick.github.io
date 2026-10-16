@@ -244,7 +244,7 @@ export const WATER_LOOK = {
 } as const;
 
 export const VEIL = {
-  clear: '#bfe0f0',
+  clear: '#2a5d7c',
   deep: '#0d1440',
   navy: '#0b1a36',
 } as const;
