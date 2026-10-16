@@ -19,6 +19,9 @@ describe('readout formats', () => {
 
   it('shows iodine as eaten before the switch, then in µM and mM', () => {
     expect(formatIodine(0, 9.9, 10)).toBe(readouts.iodineState.eaten);
+    expect(formatIodine(0, 10, 10)).toBe(readouts.iodineState.eaten);
+    expect(formatIodine(4e-7, 10.00002, 10)).toBe(readouts.iodineState.eaten);
+    expect(formatIodine(1e-6, 10.00004, 10)).toBe(fill(units.micromolar, { value: '1' }));
     expect(formatIodine(2e-5, 10.001, 10)).toBe(fill(units.micromolar, { value: '20' }));
     expect(formatIodine(0.0025, 15, 10)).toBe(fill(units.millimolar, { value: '2.50' }));
   });

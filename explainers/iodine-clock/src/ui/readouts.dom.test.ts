@@ -53,9 +53,10 @@ describe('gauge readouts', () => {
     expect(row('now').value(end)).toBe(timeline.detail.blue);
   });
 
-  it('shows iodine in µM just after the switch', () => {
+  it('keeps iodine eaten at the switch instant, then shows it in µM', () => {
     const switched = at(MOMENTS.switch);
     expect(row('clock').value(switched)).toBe(fill(timeline.value, { seconds: '10.000' }));
-    expect(row('iodine').value(switched)).toBe(fill(units.micromolar, { value: '0' }));
+    expect(row('iodine').value(switched)).toBe(readouts.iodineState.eaten);
+    expect(row('iodine').value(at(MOMENTS.visible))).toBe(fill(units.micromolar, { value: '20' }));
   });
 });

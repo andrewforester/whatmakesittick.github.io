@@ -20,6 +20,7 @@ const RATIO_DIGITS = 2;
 const LIFETIME_DIGITS = 2;
 const PERCENT = 100;
 const MICROMOLAR_PER_MILLIMOLAR = 1000;
+const SMALLEST_SHOWN_MICROMOLAR = 1;
 const ONE_MILLIMOLAR_M = 1e-3;
 const NANOSECONDS_PER_SECOND = 1e9;
 const MICROSECONDS_PER_SECOND = 1e6;
@@ -70,11 +71,11 @@ export function formatTemperature(celsius: number): string {
 }
 
 export function formatIodine(iodineM: number, seconds: number, switchAt: number): string {
-  if (seconds < switchAt) return t('readouts.iodineState.eaten');
-  if (iodineM < ONE_MILLIMOLAR_M) {
-    const micromolar = toMillimolar(iodineM) * MICROMOLAR_PER_MILLIMOLAR;
-    return unit('micromolar', formatNumber(Math.round(micromolar)));
+  const micromolar = Math.round(toMillimolar(iodineM) * MICROMOLAR_PER_MILLIMOLAR);
+  if (seconds < switchAt || micromolar < SMALLEST_SHOWN_MICROMOLAR) {
+    return t('readouts.iodineState.eaten');
   }
+  if (iodineM < ONE_MILLIMOLAR_M) return unit('micromolar', formatNumber(micromolar));
   return formatMillimolar(iodineM);
 }
 
