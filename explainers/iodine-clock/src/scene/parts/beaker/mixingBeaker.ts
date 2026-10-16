@@ -39,6 +39,7 @@ uniform float uDepth;
 uniform float uBloom;
 uniform float uStir;
 uniform float uSchlieren;
+uniform float uSurface;
 uniform vec3 uThin;
 uniform float uEdgeMix;
 uniform float uDeepen;
@@ -60,7 +61,9 @@ gl_FragColor.rgb = mix(gl_FragColor.rgb, gl_FragColor.rgb * 0.35, clamp(bloom, 0
 gl_FragColor.rgb *= 1.0 - uDeepen * uDepth;
 gl_FragColor.rgb = mix(gl_FragColor.rgb, uThin, liquidEdge * uDepth * uEdgeMix);
 gl_FragColor.rgb += vec3(0.6, 0.75, 0.85) * uSchlieren * max(0.0, swirlFine) * 0.35;
-gl_FragColor.a = clamp(gl_FragColor.a + liquidEdge * mix(0.18, 0.02, uDepth) + uSchlieren * 0.08 * swirl + uBloom * 0.25 * streak, 0.0, 1.0);
+float meniscus = smoothstep(0.35, 0.0, abs(vWorldPos.y - uSurface)) * (1.0 - uDepth);
+gl_FragColor.rgb += vec3(0.75, 0.9, 1.0) * meniscus * 0.35;
+gl_FragColor.a = clamp(gl_FragColor.a + meniscus * 0.3 + liquidEdge * mix(0.18, 0.02, uDepth) + uSchlieren * 0.08 * swirl + uBloom * 0.25 * streak, 0.0, 1.0);
 `;
 
 interface MixtureUniforms {
@@ -68,6 +71,7 @@ interface MixtureUniforms {
   uBloom: { value: number };
   uStir: { value: number };
   uSchlieren: { value: number };
+  uSurface: { value: number };
 }
 
 function patchMixture(material: MeshStandardMaterial): MixtureUniforms {
@@ -76,6 +80,7 @@ function patchMixture(material: MeshStandardMaterial): MixtureUniforms {
     uBloom: { value: 0 },
     uStir: { value: 0 },
     uSchlieren: { value: 0 },
+    uSurface: { value: 0 },
   };
   patchMaterial(material, {
     key: 'iodine-mixture',
@@ -143,6 +148,7 @@ export function buildMixingBeaker(context: PartContext, parent: Object3D): Secti
     setState: ({ clock }: AssemblyState) => {
       const level = mixtureLevelCm(pourShareFlow(clock.pour));
       mixture.scale.y = Math.min(level, MIXING_RIM_Y - MIXING_FLOOR_Y);
+      uniforms.uSurface.value = MIXING_FLOOR_Y + mixture.scale.y;
       const depth = clock.colour;
       liquidMaterial.color.copy(clear).lerp(dark, Math.sqrt(depth));
       liquidMaterial.opacity = lerp(LIQUID_TINTS.clearOpacity, LIQUID_LOOK.darkOpacity, depth);
