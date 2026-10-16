@@ -9,9 +9,10 @@ import {
   ShaderMaterial,
   SphereGeometry,
   TorusGeometry,
+  Vector2,
   Vector3,
 } from 'three';
-import type { Object3D } from 'three';
+import type { Material, Object3D } from 'three';
 import { lerp, smoothstep } from '@core/math';
 import type { AssemblyState, Point } from '../../../ids';
 import { BOND_LENGTH_A, HELIX_AXIS, HELIX_GEOMETRY, HELIX_RINGS, I2_FINAL_M } from '../../../model';
@@ -19,6 +20,7 @@ import { DETAIL, HELIX_LOOK, THEME_GLOW } from '../../constants';
 import { mergeParts } from '../../geometry/merge';
 import { addMesh, addShaded, instanced, label, namedGroup } from '../context';
 import type { PartContext } from '../context';
+import { OPAQUE_FRAGMENT, WORLD_POSITION_VERTEX, patchMaterial } from '../patches';
 import { seededRandom } from '../random';
 import type { DrawContext } from './draw';
 import { SHAPES } from './shapes';
@@ -53,6 +55,14 @@ void main() {
   gl_FragColor = vec4(colour * body * span * uStrength, 1.0);
   #include <colorspace_fragment>
 }
+`;
+
+const RIBBON_FRONT = /* glsl */ `
+vec2 ribbonRadial = normalize(vWorldPos.xz - uAxis);
+vec2 ribbonView = normalize(cameraPosition.xz - uAxis);
+float ribbonFront = smoothstep(-0.2, 0.4, dot(ribbonRadial, ribbonView));
+gl_FragColor.rgb *= mix(0.45, 1.25, ribbonFront);
+gl_FragColor.a *= mix(0.25, 2.2, ribbonFront);
 `;
 
 const RING_VERTICES = 6;
@@ -292,6 +302,7 @@ export class Helix {
   private buildRings(context: PartContext, helixRings: readonly Ring[]): void {
     const geometry = context.tracker.track(glucoseGeometry());
     const mesh = instanced(context, this.root, geometry, 'glucose', 'glucose', helixRings.length);
+    mesh.name = 'glucoseRings';
     const oxygen = context.tracker.track(new SphereGeometry(1, ...DETAIL.atom));
     const oxygens = instanced(
       context,
@@ -364,6 +375,14 @@ export class Helix {
     geometry.setIndex(indices);
     const ribbon = addMesh(context, this.root, geometry, 'amylose', 'ribbon');
     ribbon.name = 'amyloseRibbon';
+    patchMaterial(ribbon.material as Material, {
+      key: 'iodine-ribbon',
+      uniforms: { uAxis: { value: new Vector2(HELIX_AXIS.x, HELIX_AXIS.z) } },
+      vertexHead: WORLD_POSITION_VERTEX.head,
+      vertex: [WORLD_POSITION_VERTEX.body],
+      fragmentHead: 'varying vec3 vWorldPos;\nuniform vec2 uAxis;',
+      fragment: [{ after: OPAQUE_FRAGMENT, code: RIBBON_FRONT }],
+    });
     ribbon.renderOrder = 1;
   }
 

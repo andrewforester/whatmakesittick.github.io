@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { Vector3 } from 'three';
-import type { Mesh, MeshStandardMaterial, Object3D } from 'three';
+import { Matrix4, Vector3 } from 'three';
+import type { InstancedMesh, Mesh, MeshStandardMaterial, Object3D } from 'three';
 import { smoothstep } from '@core/math';
 import { MaterialLibrary } from '@core/scene/materials';
 import { isShown } from '@core/scene/parts';
@@ -172,6 +172,27 @@ describe('iodine clock assembly', () => {
     const cold = column.scale.y;
     assembly.setState(stateAt({ temperatureC: 40 }));
     expect(column.scale.y).toBeGreaterThan(cold);
+    assembly.dispose();
+  });
+
+  it('turns the glucose rings clockwise seen from above as they rise', () => {
+    const assembly = build(stateAt({ scale: 'molecules' }));
+    const rings = named(assembly.root, 'glucoseRings') as InstancedMesh;
+    const matrix = new Matrix4();
+    const centres = Array.from({ length: rings.count }, (_, index) => {
+      rings.getMatrixAt(index, matrix);
+      return new Vector3().setFromMatrixPosition(matrix);
+    });
+    const around = (point: Vector3) => Math.atan2(point.x - HELIX_AXIS.x, point.z - HELIX_AXIS.z);
+    centres.slice(1).forEach((centre, index) => {
+      const below = centres[index];
+      expect(centre.y).toBeGreaterThan(below.y);
+      const turn = Math.atan2(
+        Math.sin(around(centre) - around(below)),
+        Math.cos(around(centre) - around(below)),
+      );
+      expect(turn).toBeLessThan(0);
+    });
     assembly.dispose();
   });
 
