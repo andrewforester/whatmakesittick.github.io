@@ -5,7 +5,7 @@ import type { CameraView, RegionId, ScaleId } from '../ids';
 export const CAMERA_VIEWS: Readonly<Record<CameraView, FramedView<RegionId>>> = {
   bench: { region: 'bench', direction: [0.15, 0.35, 1], margin: 1.08 },
   landolt: { region: 'event', direction: [0.3, 0.25, 1], margin: 1.05 },
-  iodine: { region: 'solution', direction: [0.25, 0.3, 1], margin: 1.02 },
+  iodine: { region: 'event', direction: [0.25, 0.3, 1], margin: 1.4 },
   beaker: { region: 'beaker', direction: [0.1, 0.15, 1], margin: 1.05 },
   helix: { region: 'helix', direction: [0.2, 0.1, 1], margin: 1.05 },
   tuning: { region: 'tuning', direction: [0.2, 0.45, 1], margin: 1.06 },
