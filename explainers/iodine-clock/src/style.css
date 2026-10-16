@@ -1,10 +1,7 @@
 :root {
-  --clock-sulfur: #e8c547;
-  --clock-iodine: #b07ad9;
-  --clock-blue: #4a5bd1;
-  --clock-waiting: #8b929c;
-  --clock-running: #e8c547;
-  --clock-finished: #6fbf73;
+  --sulfur: #e8c547;
+  --iodine-phase: #b07ad9;
+  --blue: #4a5bd1;
 }
 
 .chapter .readouts {
@@ -52,7 +49,7 @@
 }
 
 .step-list li {
-  --tone: var(--clock-waiting);
+  --tone: var(--muted);
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 2px 12px;
@@ -63,11 +60,11 @@
 }
 
 .step-list li[data-state='running'] {
-  --tone: var(--clock-running);
+  --tone: var(--sulfur);
 }
 
 .step-list li[data-state='finished'] {
-  --tone: var(--clock-finished);
+  --tone: var(--blue);
 }
 
 .step-list__name {
@@ -121,19 +118,19 @@
 }
 
 .clock-graph__legend [data-series='bisulfite'] {
-  --series: var(--clock-sulfur);
+  --series: var(--sulfur);
 }
 
 .clock-graph__legend [data-series='iodine'] {
-  --series: var(--clock-iodine);
+  --series: var(--iodine-phase);
 }
 
 .chip[data-action='scale'] {
-  --tone: var(--clock-blue);
+  --tone: var(--blue);
 }
 
 .chip[data-action='mix'] {
-  --tone: var(--clock-sulfur);
+  --tone: var(--sulfur);
 }
 
 @media (pointer: coarse) {
