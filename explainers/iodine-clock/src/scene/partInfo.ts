@@ -39,8 +39,6 @@ export const LABEL_PRIORITY: readonly PartId[] = [
   'water',
 ];
 
-export const UNDIMMED_PARTS: readonly PartId[] = ['mixture', 'water'];
-
 function labelSide(id: PartId): LabelSide {
   return LEFT_PARTS.has(id) ? 'left' : 'right';
 }

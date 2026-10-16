@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { PART_IDS } from '../ids';
-import { LABEL_PRIORITY, PART_INFO, UNDIMMED_PARTS } from './partInfo';
+import { LABEL_PRIORITY, PART_INFO } from './partInfo';
+import { UNDIMMED_PARTS } from './sceneOptions';
 
 describe('part info', () => {
   it('labels every part from its locale key', () => {
