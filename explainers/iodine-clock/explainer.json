@@ -1,0 +1,12 @@
+{
+  "slug": "iodine-clock",
+  "tags": ["chemistry", "physics"],
+  "cover": "cover.webp",
+  "entry": "src/index.ts",
+  "chapters": "chapters.html",
+  "locales": ["en", "zh", "es", "uk", "pt", "fr", "de", "ja"],
+  "social": {
+    "image": "social/og-image.png",
+    "alt": "Placeholder: a beaker of clear liquid turning blue-black, beside the title How the iodine clock works"
+  }
+}
