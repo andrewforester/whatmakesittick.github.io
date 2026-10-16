@@ -1,6 +1,6 @@
 import type { ScenePreset } from '@core/scene/presetBinder';
 import type { CameraView, PartId, PresetId, ScaleId, ViewOptions } from '../ids';
-import { IODATE_RANGE_MM, TEMPERATURE_RANGE_C } from '../model';
+import { IODATE_RANGE_MM, PHASE_RANGES, TEMPERATURE_RANGE_C } from '../model';
 import { REAL_TIME_SPEED } from '../model/playback';
 
 export interface ChapterControls {
@@ -22,11 +22,11 @@ export const CHAPTER_CONTROL_DEFAULTS: ChapterControls = {
 
 const HALF_SPEED = REAL_TIME_SPEED - 1;
 
-const RUN_START = 0;
+export const RUN_START = PHASE_RANGES.pour.start;
 const SLOW_STEP_AT = 200;
 const INVISIBLE_IODINE_AT = 360;
 const TIPPING_POINT_AT = 440;
-const STARCH_AT = 780;
+const STARCH_AT = PHASE_RANGES.complex.start;
 
 const BEAKER: Partial<ChapterControls> = { scale: 'beaker' };
 const MOLECULES: Partial<ChapterControls> = { scale: 'molecules' };

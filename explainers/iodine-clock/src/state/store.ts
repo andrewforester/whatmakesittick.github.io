@@ -6,7 +6,7 @@ import { CYCLE_UNITS, IODATE_RANGE_MM, TEMPERATURE_RANGE_C, advanceUnits } from 
 import { SPEED_RANGE, speedFactor } from '../model/playback';
 import { CLOCK_TIMELINE_BASE } from '../timeline';
 import { switchSecondsOf } from './derived';
-import { CHAPTER_CONTROL_DEFAULTS, PRESETS } from './presets';
+import { CHAPTER_CONTROL_DEFAULTS, PRESETS, RUN_START } from './presets';
 import type { ChapterControls, Preset } from './presets';
 
 export type ViewState = { [Key in keyof ViewOptions]: ViewOptions[Key] };
@@ -37,9 +37,7 @@ export const DEFAULT_VIEW: ViewState = { water: true, labels: true };
 
 const START_PRESET: PresetId = 'pour';
 const START_SPEED = PRESETS[START_PRESET].speed ?? SPEED_RANGE.default;
-export const START_PHASE = PRESETS[START_PRESET].startAt ?? 0;
-
-const RUN_START = 0;
+export const START_PHASE = PRESETS[START_PRESET].startAt ?? RUN_START;
 
 export function snapToRange(value: number, { min, max, step }: SteppedRange): number {
   const snapped = min + Math.round((value - min) / step) * step;
