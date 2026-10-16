@@ -29,6 +29,10 @@ class DoubleBufferedAssemblyState {
   }
 }
 
+function scaleFlippedInChapter(state: ClockStoreState, previous: ClockStoreState): boolean {
+  return state.scale !== previous.scale && state.preset === previous.preset;
+}
+
 function scaleSourceOf(state: ClockStoreState): ScaleSource {
   return { scale: state.scale, camera: PRESETS[state.preset].camera };
 }
@@ -40,8 +44,8 @@ export function bindStore(store: ClockStore, targets: SceneTargets): () => void 
   const labels = new ScaleLabelPolicy(labelVisibility, () => scaleSourceOf(store.getState()));
   const highlightOf = (preset: Preset, state: ClockStoreState) =>
     highlightForScale(preset.highlight, scaleSourceOf(state));
-  const onScale = () => {
-    const state = store.getState();
+  const onScale = (state: ClockStoreState, previous: ClockStoreState) => {
+    if (!scaleFlippedInChapter(state, previous)) return;
     const preset = PRESETS[state.preset];
     clock.views.frame(preset.camera, true, state.scale);
     highlighter.setHighlight(highlightOf(preset, state));
@@ -59,7 +63,7 @@ export function bindStore(store: ClockStore, targets: SceneTargets): () => void 
       onView: (_view, state) => push(state),
       highlight: highlightOf,
     }),
-    store.subscribe((state) => state.scale, onScale),
+    store.subscribe(onScale),
   ];
   return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
 }

@@ -45,6 +45,17 @@ describe('iodine clock scene bindings', () => {
     expect(handed).toMatchObject({ scale: 'molecules', phase: 200 });
   });
 
+  it('frames a chapter that also changes the scale only once', () => {
+    const { frame, setHighlight, targets } = fakeTargets();
+    const store = createClockStore();
+    bindStore(store, targets);
+    frame.mockClear();
+    setHighlight.mockClear();
+    store.getState().applyPreset('slowStep');
+    expect(frame).toHaveBeenCalledTimes(1);
+    expect(setHighlight).toHaveBeenCalledTimes(1);
+  });
+
   it('re-frames, drops the highlight and swaps the labels on a scale flip', () => {
     const { frame, setWanted, setHighlight, targets } = fakeTargets();
     const store = createClockStore();
