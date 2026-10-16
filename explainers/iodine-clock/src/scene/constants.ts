@@ -119,10 +119,11 @@ export const STIRRER_LOOK = {
 export const POUR_LOOK = {
   arcLift: 6,
   tiltStartShare: 0.25,
+  flowStart: 0.38,
   extraTiltDeg: 12,
   jetSpeedCmS: 9,
   gravityCmS2: 981,
-  jetRadius: 0.32,
+  jetRadius: 0.42,
   minJetRadius: 0.08,
   streakSpeed: 40,
   splashRadius: 1.8,

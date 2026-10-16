@@ -105,33 +105,46 @@ function rotate([x, y, z]: Point, tilt: number): Point {
   return [x * cos - y * sin, x * sin + y * cos, z];
 }
 
-function baseFor(tilt: number): Point {
-  const [x, y, z] = rotate(LOCAL_LIP, tilt);
-  const [lipX, lipY, lipZ] = POUR_BEAKER.lip;
-  return [lipX - x, lipY - y, lipZ - z];
+function tiltWhileFlowing(volume: number, flow: number): number {
+  return (
+    tiltFor(Math.max(volume, POUR_LOOK.emptyVolume)) +
+    toRadians(POUR_LOOK.extraTiltDeg) * smoothstep(flow, FLOW_TAIL, 1)
+  );
 }
 
-function approach(share: number): PourPose {
-  const eased = smoothstep(share);
-  const tilt = FILL_TILT * smoothstep(share, POUR_LOOK.tiltStartShare, 1);
-  const target = baseFor(FILL_TILT);
-  const [restX, restY, restZ] = POUR_BEAKER.rest;
-  const lift = POUR_LOOK.arcLift * Math.sin(HALF_TURN * eased);
-  const base: Point = [
-    lerp(restX, target[0], eased),
-    lerp(restY, target[1], smoothstep(share, 0, POUR_LOOK.tiltStartShare * 2)) + lift * (1 - eased),
-    lerp(restZ, target[2], eased),
-  ];
-  const lip = rotate(LOCAL_LIP, tilt);
+function held(lip: Point, tilt: number, flow: number): PourPose {
+  const volume = pourBeakerLevelCm(flow) * POUR_BEAKER_AREA_CM2;
+  const [x, y, z] = rotate(LOCAL_LIP, tilt);
+  const base: Point = [lip[0] - x, lip[1] - y, lip[2] - z];
   return {
     base,
     tilt,
-    surface: base[1] + surfaceFor(FULL_VOLUME, tilt),
-    volume: FULL_VOLUME,
-    flow: 0,
-    rate: 0,
-    lip: [base[0] + lip[0], base[1] + lip[1], base[2] + lip[2]],
+    surface: base[1] + Math.min(rimSurface(tilt), surfaceFor(volume, tilt)),
+    volume,
+    flow,
+    rate: flowRate(flow),
+    lip,
   };
+}
+
+function approach(pour: number): PourPose {
+  const share = pour / POUR_BEAKER.lipReachedAt;
+  const eased = smoothstep(share);
+  const fillShare = POUR_LOOK.flowStart / POUR_BEAKER.lipReachedAt;
+  const flow = pourShareFlow(pour);
+  const volume = pourBeakerLevelCm(flow) * POUR_BEAKER_AREA_CM2;
+  const leaning = FILL_TILT * smoothstep(share, POUR_LOOK.tiltStartShare, fillShare);
+  const tilt = flow > 0 ? Math.max(leaning, tiltWhileFlowing(volume, flow)) : leaning;
+  const [restX, restY, restZ] = POUR_BEAKER.rest;
+  const [localX, localY, localZ] = LOCAL_LIP;
+  const [lipX, lipY, lipZ] = POUR_BEAKER.lip;
+  const lift = POUR_LOOK.arcLift * Math.sin(HALF_TURN * eased);
+  const lip: Point = [
+    lerp(restX + localX, lipX, eased),
+    lerp(restY + localY, lipY, eased) + lift,
+    lerp(restZ + localZ, lipZ, eased),
+  ];
+  return held(lip, tilt, flow);
 }
 
 function flowRate(flow: number): number {
@@ -142,23 +155,11 @@ function flowRate(flow: number): number {
 
 function pouring(flow: number): PourPose {
   const volume = pourBeakerLevelCm(flow) * POUR_BEAKER_AREA_CM2;
-  const tilt =
-    tiltFor(Math.max(volume, POUR_LOOK.emptyVolume)) +
-    toRadians(POUR_LOOK.extraTiltDeg) * smoothstep(flow, FLOW_TAIL, 1);
-  const base = baseFor(tilt);
-  return {
-    base,
-    tilt,
-    surface: base[1] + Math.min(rimSurface(tilt), surfaceFor(volume, tilt)),
-    volume,
-    flow,
-    rate: flowRate(flow),
-    lip: [...POUR_BEAKER.lip],
-  };
+  return held([...POUR_BEAKER.lip], tiltWhileFlowing(volume, flow), flow);
 }
 
 export function pourShareFlow(pour: number): number {
-  return clamp((pour - POUR_BEAKER.lipReachedAt) / (1 - POUR_BEAKER.lipReachedAt), 0, 1);
+  return clamp((pour - POUR_LOOK.flowStart) / (1 - POUR_LOOK.flowStart), 0, 1);
 }
 
 function settle(share: number): PourPose {
@@ -185,7 +186,7 @@ function settle(share: number): PourPose {
 }
 
 export function pourPose(pour: number, seconds: number): PourPose {
-  if (pour < POUR_BEAKER.lipReachedAt) return approach(pour / POUR_BEAKER.lipReachedAt);
+  if (pour < POUR_BEAKER.lipReachedAt) return approach(pour);
   const settled = smoothstep(seconds, POUR_S + POUR_LOOK.settleDelay, POUR_S + POUR_LOOK.settleEnd);
   if (pour >= 1 && settled > 0) return settle(settled);
   return pouring(pourShareFlow(pour));

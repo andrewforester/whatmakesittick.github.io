@@ -6,7 +6,7 @@ import { POUR_BEAKER, POUR_BEAKER_AREA_CM2 } from '../../../model';
 import { BEAKER_LOOK, DETAIL } from '../../constants';
 import { addMesh, label, namedGroup } from '../context';
 import type { PartContext, Section } from '../context';
-import { WORLD_POSITION_VERTEX, patchMaterial } from '../patches';
+import { OPAQUE_FRAGMENT, WORLD_POSITION_VERTEX, patchMaterial } from '../patches';
 import { contactShadow } from './bench';
 import { RENDER_ORDER, addGlassware, addGraduation } from './glassware';
 import { POUR_SHAPE, pourPose } from './pourMotion';
@@ -23,6 +23,13 @@ const SOLUTION_CLIP = /* glsl */ `
 if (vWorldPos.y > uSurface + 0.002) discard;
 vec3 inBeaker = (uToBeaker * vec4(vWorldPos, 1.0)).xyz;
 if (length(inBeaker.xz) > uInterior.x || inBeaker.y < uInterior.y || inBeaker.y > uInterior.z) discard;
+`;
+
+const SOLUTION_EDGE = /* glsl */ `
+float solutionEdge = pow(1.0 - abs(dot(normalize(normal), normalize(vViewPosition))), 2.0);
+float solutionTop = smoothstep(0.25, 0.0, abs(vWorldPos.y - uSurface));
+gl_FragColor.rgb += vec3(0.7, 0.88, 1.0) * (solutionEdge * 0.2 + solutionTop * 0.3);
+gl_FragColor.a = clamp(gl_FragColor.a + solutionEdge * 0.18 + solutionTop * 0.25, 0.0, 1.0);
 `;
 
 const GRADUATION_STEP_ML = 25;
@@ -56,7 +63,10 @@ function patchSolution(material: MeshStandardMaterial): SolutionUniforms {
     vertexHead: WORLD_POSITION_VERTEX.head,
     vertex: [WORLD_POSITION_VERTEX.body],
     fragmentHead: SOLUTION_HEAD,
-    fragment: [{ after: '#include <clipping_planes_fragment>', code: SOLUTION_CLIP }],
+    fragment: [
+      { after: '#include <clipping_planes_fragment>', code: SOLUTION_CLIP },
+      { after: OPAQUE_FRAGMENT, code: SOLUTION_EDGE },
+    ],
   });
   return uniforms;
 }
