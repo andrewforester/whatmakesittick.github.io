@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { mountActions } from '@core/ui/actions';
-import { MOMENTS, PHASE_RANGES } from '../model';
+import { CYCLE_UNITS, MOMENTS, PHASE_RANGES } from '../model';
 import { createClockStore } from '../state';
 import type { ClockStore } from '../state';
 import { CHAPTER_ACTIONS } from './actions';
@@ -80,6 +80,9 @@ describe('chapter widgets', () => {
     store.getState().setPhase(PHASE_RANGES.blue.start);
     expect(readout('helixFill')).toBe(fill(units.percent, { value: '100' }));
     expect(readout('iodineNow')).toBe(fill(units.millimolar, { value: '2.45' }));
+    store.getState().setPhase(CYCLE_UNITS);
+    expect(readout('iodideMade')).toBe(fill(units.millimolar, { value: '4.17' }));
+    expect(readout('acidMade')).toBe(fill(units.millimolar, { value: '12.50' }));
   });
 
   it('moves the switch time with both sliders and restarts the run', () => {

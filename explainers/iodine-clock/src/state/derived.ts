@@ -39,6 +39,19 @@ function pourShare(units: number): number {
   return smoothstep(units, PHASE_RANGES.pour.start, PHASE_RANGES.pour.end);
 }
 
+const IODIDE_PER_SULFATE = 1 / 3;
+const ACID_PER_SULFATE = 1;
+
+type SulfateSource = Pick<ClockReading, 'sulfateM'>;
+
+export function iodideMadeM(reading: SulfateSource): number {
+  return reading.sulfateM * IODIDE_PER_SULFATE;
+}
+
+export function acidMadeM(reading: SulfateSource): number {
+  return reading.sulfateM * ACID_PER_SULFATE;
+}
+
 export function readingAt(source: ReadingSource): ClockReading {
   const switchAt = switchSecondsOf(source);
   const units = source.phase;

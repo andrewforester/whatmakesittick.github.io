@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { CYCLE_UNITS, MOMENTS, PHASE_RANGES, STIR_DEG_PER_S } from '../model';
-import { clockReading, createAssemblyState, switchSecondsOf, writeAssemblyState } from './derived';
+import {
+  acidMadeM,
+  clockReading,
+  createAssemblyState,
+  iodideMadeM,
+  switchSecondsOf,
+  writeAssemblyState,
+} from './derived';
 import { createClockStore } from './store';
 
 function stateAt(phase: number, changes = {}) {
@@ -34,6 +41,27 @@ describe('derived clock state', () => {
     expect(reading.iodateM * 1000).toBeCloseTo(20.83, 2);
     expect(reading.acidM * 1000).toBeCloseTo(12.5, 6);
     expect(reading.lifetimeSeconds).toBe(Infinity);
+  });
+
+  it('only ever grows the iodide and acid the slow step has made', () => {
+    const recipes = [
+      { iodateMm: 25, temperatureC: 20 },
+      { iodateMm: 10, temperatureC: 5 },
+      { iodateMm: 50, temperatureC: 40 },
+    ];
+    recipes.forEach((recipe) => {
+      let iodide = 0;
+      let acid = 0;
+      for (let phase = 0; phase <= CYCLE_UNITS; phase += 1) {
+        const reading = clockReading(stateAt(phase, recipe));
+        expect(iodideMadeM(reading)).toBeGreaterThanOrEqual(iodide);
+        expect(acidMadeM(reading)).toBeGreaterThanOrEqual(acid);
+        iodide = iodideMadeM(reading);
+        acid = acidMadeM(reading);
+      }
+      expect(iodide * 1000).toBeCloseTo(4.17, 2);
+      expect(acid * 1000).toBeCloseTo(12.5, 6);
+    });
   });
 
   it('ends with 2.5 mM iodine, full colour and 7.5 mM acid', () => {
