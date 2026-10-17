@@ -220,7 +220,7 @@
   color: var(--text);
   font-size: 0.875rem;
   font-weight: 500;
-  line-height: 1.25;
+  line-height: 1.15;
   text-align: start;
   transition:
     background 0.15s ease,
