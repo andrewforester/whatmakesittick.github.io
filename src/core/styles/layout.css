@@ -64,6 +64,10 @@
   min-width: 0;
 }
 
+.prose li {
+  min-width: 0;
+}
+
 .site-footer {
   grid-area: footer;
   padding: 24px var(--gutter) 32px;
