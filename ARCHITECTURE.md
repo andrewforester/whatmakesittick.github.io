@@ -15,11 +15,14 @@ built into a page at `/<slug>/`.
 | `404.html`                | The page GitHub Pages serves for a missing path, filled by the build            |
 | `src/core/`               | Everything an explainer builds on (see below)                                   |
 | `src/core/page.html`      | The explainer page template: masthead, stage, gauge, dock, prose column, footer |
-| `src/core/partials/`      | Markup shared by the template and the catalogue: header actions, footer         |
+| `src/core/partials/`      | Markup shared by the template, the catalogue and the embed: dock, gauge, footer |
+| `src/core/styles/`        | The stylesheet in parts, imported in cascade order by `src/core/style.css`      |
 | `src/core/locales/*.json` | Shell strings only: controls, footer, header chrome, keyboard, catalogue        |
 | `explainers/<slug>/`      | One folder per explainer, see "Explainer package"                               |
 | `vite/`                   | The `explainerPages` plugin: manifests, language pages, crawl files, catalogue  |
+| `src/core/embed/`         | The embed API: one explainer mounted into another page, see "Embed"             |
 | `e2e/`                    | Browser smoke test run by Playwright against the production build               |
+| `mcp/`                    | The MCP app: server and chat widget built on the embeds, see `mcp/README.md`    |
 | `public/`                 | Site-wide static files: favicon, icons, web manifest, catalogue link preview    |
 | `scripts/`                | `social-images.sh` renders the icons, `favicon.ico` and `scripts/cards/*.html`  |
 | `.github/workflows/`      | `ci.yml` on pull requests, `deploy.yml` on `main`, `smoke.yml` by hand          |
@@ -41,7 +44,7 @@ pages), so a language folder or the about page never clashes with an explainer.
 
 ```
 explainers/engine/
-  explainer.json      slug, tags, cover, entry, chapters, locales, social
+  explainer.json      slug, tags, topic, cover, entry, chapters, locales, social, formerSlugs
   chapters.html       the prose column: <section class="chapter" data-preset="…"> blocks
   locales/en.json …   everything the explainer says, including meta.title, meta.eyebrow,
                       meta.tagline, meta.description, meta.summary and the optional
@@ -62,6 +65,7 @@ explainers/engine/
 {
   "slug": "engine",
   "tags": ["engines", "mechanics", "vehicles"],
+  "topic": "car engine",
   "cover": "cover.webp",
   "entry": "src/index.ts",
   "chapters": "chapters.html",
@@ -76,10 +80,25 @@ The slug must match the folder and must not clash with a root folder
 from `TAGS` in `src/core/manifest.ts`: mechanics, engines, vehicles, aircraft,
 flight, physics, weather, home, tools, optics, energy, earth and biology. Every tag has a label under
 `catalogue.tags.<id>` in all eight core locales, which a test enforces, so a new
-tag goes into `TAGS` and every core locale together. `cover` and `social.image` are paths inside `public/`;
+tag goes into `TAGS` and every core locale together. `topic` is one short English noun phrase for
+the thing, as people say it ("car engine", "MQ-9 Reaper drone"); the MCP tool description lists it, and
+`/embed/v1/manifest.json` carries it. `cover` and `social.image` are paths inside `public/`;
 the social image is 1200 × 630. The page head describes it with `meta.socialAlt` from the
 page's locale when the locale has it, and with `social.alt` otherwise. The plugin validates all of this and fails the
 build with the manifest's path in the message.
+
+`formerSlugs` is optional and lists the slugs the explainer had before. To rename an
+explainer, move `explainers/<old>/` to `explainers/<new>/` and, in its `explainer.json`, set
+`slug` to `<new>` and add `"formerSlugs": ["<old>"]`. Nothing else names the slug, since the
+code has no id of its own. Keep the list forever and
+add to it on each further rename. A former slug follows the slug rules, is not the current slug
+and is not reserved, and no other explainer may use it as a slug or list it too. The build does
+the rest from the list (`vite/slugAliases.ts`): an alias module under `/embed/v1/`
+(see "Embed"), the `aliases` in the embed manifest and the catalogue modules, and a redirect
+stub for every old page in every language (`vite/redirects.ts`). A stub is a small HTML page
+with `noindex`, a canonical link to the new page and a `refresh` to it, relative to the old path
+so it works under any base. It has no script and stays out of the sitemap, the feeds and the
+hreflang links. An explainer removed for good goes into `vite/removedSlugs.json` instead.
 
 The explainer imports the toolkit through the `@core/*` alias, which resolves to
 `src/core/*`. Explainers carry no tooling of their own; the repository's lint,
@@ -161,7 +180,6 @@ interface SceneOptions {
 }
 
 interface Explainer<S extends Playback = Playback> {
-  id: string;
   timeline: Timeline;
   presets: Record<string, Preset>; // chapter data-preset values are checked against these
   parts: Record<string, { labelKey: string; side: 'left' | 'right' }>; // labels and highlight groups
@@ -175,9 +193,18 @@ interface Explainer<S extends Playback = Playback> {
   shortcuts?: Record<string, (state: S) => void>; // extra keys
   scene?: SceneOptions; // sky, fog, stage and camera limits
   mountScene(shell: SceneShell, store: ExplainerStore<S>): () => void;
+  mountGauge?(gauge: HTMLElement, store: ExplainerStore<S>): () => void; // extra gauge content
   mountUi?(root: Document, store: ExplainerStore<S>): void;
 }
 ```
+
+The explainer has no id. Its slug is the folder name, and the build takes it from there: the
+embed entry passes it to `defineEmbed`, so the code never repeats it.
+
+`mountUi` is for the page only: it reaches into the chapters and the prose column, and the embed
+never calls it. Whatever the explainer adds to the gauge, such as the engine's cycle dial, goes
+through `mountGauge` instead: the page calls it on its `[data-gauge]` and the embed on the gauge it
+mounts in the host's gauge slot, after the readouts, and the function it returns removes it again.
 
 An explainer's presets extend `ScenePreset` from `src/core/scene/presetBinder.ts`,
 which the preset binder reads (see "Scene toolkit").
@@ -202,7 +229,7 @@ the page with, stays when the reader moves on to the next chapter.
 
 Core mounts the shell (`src/core/mount.ts`): the dock (play, scrubber with phase
 bands, status, speed slider, choices, toggles, reset camera, more), the gauge
-readouts, language, footer, `mountUi`, chapter actions, the full screen toggle,
+readouts and `mountGauge`, language, footer, `mountUi`, chapter actions, the full screen toggle,
 the keyboard (space, arrows, digits for phases, R, X and Escape for full screen,
 choice and toggle shortcuts, explainer shortcuts), reading-line sections and the
 safe area: the dock reserves the bottom of the stage and the gauge the right, or
@@ -244,7 +271,10 @@ refits the renderer, the lens and the labels, and the reading-line sections igno
 chapters while the stage is expanded and measure the reading line again after it
 collapses, so expanding never changes the chapter. X toggles it and Escape closes
 it; the keyboard runs these shell keys before the explainer's bindings, and Escape
-passes through when nothing is expanded. The gauge sits under the button, and the
+passes through when nothing is expanded; these keys are `stageShortcuts` in
+`stageShortcuts.ts`, which the chat widget binds to the host's display mode. The rest of the keyboard is
+`createKeyHandler` in `keyboard.ts`, which the embed controller also offers as `handleKey`, so the
+widget's fullscreen answers the same keys as the expanded stage. The gauge sits under the button, and the
 button is 44px on a touch screen.
 
 A choice's `shortcut` cycles through its options. Chapter buttons use
@@ -579,7 +609,8 @@ emitted at build and served by the dev server, never committed. The sitemap list
 every page in every language, each with `xhtml:link` alternates for all its language
 variants and `x-default`, and a `lastmod`: an explainer page's `dateModified`, and for
 the catalogue the newest `dateModified` among the explainers. `robots.txt` allows
-every crawler and points at the sitemap. `public/favicon.ico` holds the favicon at 16 and
+every crawler, keeps it out of the published sources in `/embed/v1/explainers/` and points at the
+sitemap. `public/favicon.ico` holds the favicon at 16 and
 32 pixels for browsers and crawlers that ask for it: `scripts/social-images.sh` renders
 `public/favicon.svg` at both sizes and `scripts/favicon-ico.ts` packs the PNG files with
 `encodeIco` from `vite/ico.ts`. Every page links it after the SVG icon.
@@ -623,8 +654,18 @@ on a site page, a `modulepreload` on every translated page, one card per explain
 catalogue, the noscript cover and the more-explainers links on an explainer page, a sitemap
 that lists exactly the built pages, a feed link to the page language on every page, a feed per
 language that lists exactly its built explainers, `robots.txt`, a `noindex` 404 page without scripts and a
-real `favicon.ico`. When it fails, fix the page rather than the rule, and raise a budget only
+real `favicon.ico`. It reads the redirect stubs apart from the pages and checks that each one
+leads to a built page, names it as canonical, is `noindex` and loads no script, and that every
+alias in the embed manifest has its module, its stub and a built target, with the same aliases in
+every catalogue module. When it fails, fix the page rather than the rule, and raise a budget only
 with a measurement.
+
+Before the build, `vite/slugHistory.ts` lists the explainer folders at the fork point of `HEAD`
+with `origin/main` (`git merge-base`, then `git ls-tree`). A slug there that is no explainer now,
+no former slug and not in `vite/removedSlugs.json` fails the build with a message that says what
+to add. Without `origin/main` or the history to find the fork point, as in a shallow clone, the
+check is skipped with a note. The checks and deploy workflows check out with `fetch-depth: 0`,
+so they run it.
 
 ## Catalogue
 
@@ -722,8 +763,13 @@ English page otherwise.
 Kept from the engine: TypeScript strict, ESLint and Prettier over the repository,
 Vitest for pure modules, happy-dom for `*.dom.test.ts` files, no comments by
 default, no all-caps text, `data-i18n`, `data-i18n-html`, `data-i18n-attr` and
-`data-i18n-values` for copy, tokens in `src/core/style.css` mirrored by `src/core/theme.ts`. Modules shared with the Vite config
+`data-i18n-values` for copy, tokens in `src/core/styles/tokens.css` mirrored by `src/core/theme.ts`. Modules shared with the Vite config
 (`vite/`, `src/core/manifest.ts`) import with explicit `.ts` extensions.
+
+`src/core/style.css` imports the parts of `src/core/styles/` in cascade order: tokens, base,
+primitives, layout, the full screen toggle (`stage-expand.css`, which the chat widget reuses), controls, the phone dock rules under `(max-width: 899px)`, prose, and the
+touch sizes of the controls under `(pointer: coarse)`. The controls parts style only the dock and
+the gauge, so the embed reuses them; a rule for the page goes into the page parts.
 
 Fonts are self-hosted. `src/core/style.css` imports Inter (variable) and JetBrains
 Mono 400 and 500 from Fontsource, so Vite emits hashed woff2 files and each page
@@ -741,3 +787,129 @@ old `?lang=` link, and the catalogue and the about page in English and in the la
 fails on page or console errors, untranslated copy, overflow, empty readouts, labels
 over the dock or broken cards. A run takes about three minutes; CI runs it only by
 hand, from the Smoke test workflow, and keeps the report when it fails.
+
+## Embed
+
+The site build also emits every explainer as an ES module, `/embed/v1/<slug>.js`, for pages
+outside the site such as a chat widget. It exports `apiVersion` (1), `slug` and
+`mount(container, options)`; the contract is `src/core/embed/contract.ts`. `mount` resolves to a
+controller once the first frame is drawn: `info` (its `language`, title, chapters with their
+paragraphs, phases, speed, toggles and choices, all in that language), `getState` and `subscribe`,
+`setChapter`, `play`, `pause`, `togglePlaying`, `seek`, `setSpeed`, `setView`, `setChoice`,
+`resetCamera`, `handleKey`, `setLanguage` and `dispose`, which unmounts the scene, releases the WebGL context
+and removes the styles it added. `/embed/v1/manifest.json` lists the explainers with their covers,
+topics and chapter titles, in English: `embedManifest` takes them from the catalogue entries that
+`vite/catalogue.ts` builds for the MCP server and the chat widget, with the types, `plainText` and
+`localizeEntry` in `vite/catalogueModel.ts`, which the widget bundles too.
+
+The `language` option takes a language code or a BCP 47 tag (`de`, `pt-BR`, `zh-Hans-CN`);
+`resolveLanguage` in `src/core/i18n/languages.ts` keeps its base language when the site ships it
+and falls back to English otherwise. Without the option the embed is in English whatever the
+browser prefers, as before. `mount` loads the dictionaries before it describes the explainer.
+`controller.setLanguage(language)` resolves to the language it settled on once the dictionaries
+are loaded, the controls are translated again and `info` is replaced; subscribers then get a state
+whose `phaseLabel` is in the new language. Each language is the core and the explainer dictionary
+merged, and a key a language lacks falls back to English (`fallbackLng`). The English dictionaries
+are in the module; the others are the same dynamic chunks the pages load, fetched only when a
+language is asked for. `handleKey(event)` runs the page's keyboard on the store (space,
+arrows, digits for phases, R, choice, toggle and explainer shortcuts, never X or Escape) and
+returns whether it used the key.
+
+`mountEmbed` in `src/core/embed/mount.ts` does what `mountExplainer` does for a page, minus the
+page: `useLanguage` from `src/core/i18n/embedded.ts` sets the core and explainer strings in the
+asked language without detection, the container and the control slots get a matching `lang`
+attribute, the store applies the requested chapter before the scene exists, so the camera starts
+there, and the scene host mounts into the given container. A host may pass
+`ui: { dock, gauge }`, two empty elements inside its `[data-stage]`: the embed fills them with the
+`dock` and `gauge` partials, binds them with `mountDock`, `mountReadouts` and the explainer's `mountGauge` and drops the
+language select. Their styles are the controls parts of the stylesheet, nested under `[data-embed-ui]`, with
+the phone dock rules keyed to an `embed-dock` container of at most 459px instead of the viewport.
+The scene styles and an explainer's `style.css` are added as `<style data-embed-styles>` elements
+while a scene is mounted. The embed loads the latin Inter and JetBrains Mono files the pages use, and their
+Cyrillic files only for Ukrainian; Japanese and Chinese use system fonts, as on the pages.
+On a stage container of at most 620px, where the controls styles hide the readouts, the embed hides
+the whole gauge, so no empty glass panel is left.
+
+A page mounts one embedded explainer at a time: the embeds share one i18next instance, and mounting
+another explainer replaces the dictionaries of the previous one (`adopt` in
+`src/core/i18n/embedded.ts`). The chat widget mounts one at a time.
+
+The build adds one entry per explainer (`vite/embed.ts`), generated from its manifest and the
+chapter outline of `chapters.html` (`vite/chapterOutline.ts`). The embeds share the `three`,
+`scene` and `shared` chunks and each explainer's own chunk with the pages, so a reader who has
+visited the site has them cached. A core module that only one page and its embed load stays out of
+the shared chunks (`sharedByPages` in `vite/chunks.ts`), and the embed runtime is a chunk of its
+own, so a page loads no embed code. The site check also checks an embed per explainer, its
+JavaScript budget (`JS_BUDGET_GZIP.embed`) and the manifest. `mcp/` builds the MCP server and the
+chat widget on these modules.
+
+The chat widget is a module here too, `/embed/v1/widget.js`. `npm run build:widget`, the last step
+of `npm run build`, bundles `mcp/widget/` into that file: the Preact UI, its
+styles (added as a `<style data-wmit-widget>` element), the ext-apps bridge and the English strings;
+the strings of every other language are a `widget-<lang>-<hash>.js` chunk next to it, loaded when
+first asked for. The catalogue the widget shows is not in the bundle. The site build publishes it
+as one plain ES module per language, `/embed/v1/catalogue/<lang>.js`, whose default export lists
+each explainer's slug, title, eyebrow, summary, tags, cover and chapter titles, and the taglines
+(`embedCatalogueFiles` in `vite/embedCatalogue.ts`). The widget cannot `fetch` JSON (the resource
+declares no `connectDomains`), but it may `import()` a script from the asset origin. The site
+check wants a module per language that lists exactly the built explainers, within
+`JS_BUDGET_GZIP.catalogue`.
+Chat hosts cache the `ui://` resource until the connector is reconnected, so the resource is only a
+loader, `mcp/widget/loader.html` (at most 8 KB): it reads the asset base from its
+`wmit-asset-base` meta tag, imports `<asset base>widget.js` and calls
+`start(root, { assetBase, inbox, loaderVersion })`, so a UI change ships with the site deploy. Until
+the module takes over, the loader keeps every `message` event the host window sends; the module's
+transport attaches its own listener, then calls `inbox.take()`, which stops the buffer and returns
+the events, and dispatches them again on `window` in their order, so a tool input or result that
+arrives while the module loads is not lost. If the import or `start` fails, the loader shows the
+site's name, a plain link to the explainer on the site and a retry button, and greets the host
+itself so the frame gets a size.
+
+Within `v1`, a few names are stable: `/embed/v1/widget.js`, `/embed/v1/<slug>.js` for every
+explainer in the manifest and for every former slug, `manifest.json`, `catalogue/<lang>.js` for
+every site language, `fonts/<file>.woff2` and `explainers/<slug>/` for current slugs. The fields
+of a catalogue module only grow. Never rename or remove an export, a `MountOptions` field or a DOM
+attribute a widget relies on. A breaking change goes to `/embed/v2/`, next to `v1`. The hashed
+chunks the entries import, in `/assets/` and `widget-<lang>-<hash>.js`, change with each deploy.
+A slug may be removed or renamed: the site check wants the manifest to list exactly the built
+explainers, and a rename keeps the old name working. `aliasModules` in `vite/embed.ts` writes
+`/embed/v1/<old>.js` as `export * from "./<new>.js"`, so a widget or page that still imports the
+old name mounts the renamed explainer, whose `slug` export is the new one. `manifest.json` and
+every catalogue module carry `aliases`, a map from each former slug to the current one. The server
+and the widget resolve a slug through it before they use it, and the widget also learns a rename
+when a module it loaded by an old name mounts another slug. `explainers/<old>/` is not copied: the
+server resolves the alias before it reads the files, and the published `explainer.json` names the
+new slug, so a copy under the old folder would not parse. Covers are not copied either: a widget
+takes the cover path from the catalogue, which names the hashed file of the current build.
+`stableFontFiles` in `vite/embed.ts` copies the embed fonts to `/embed/v1/fonts/<file>.woff2`
+under their fontsource names (the list is `EMBED_FONTS` in `src/core/embed/fontFiles.ts`), and
+`vite/embed.test.ts` checks that they are in `dist/`. The build also publishes each explainer's
+`explainer.json`, `chapters.html` and
+`locales/<code>.json` verbatim under `/embed/v1/explainers/<slug>/` (`embedSourceFiles` in
+`vite/embed.ts`), so the MCP server reads them from the site; they are part of `v1`. Their fields
+and keys only grow, so the server reads them leniently (`parsePublishedManifest` in
+`vite/manifestSchema.ts` drops a tag or language code it does not know).
+
+A deploy replaces the whole site, and GitHub Pages sends `Cache-Control: max-age=600` for every
+file, so for up to ten minutes a browser can hold an entry whose hashed chunks are gone, and a
+widget mounted before the deploy keeps the old chunk names. The widget recovers instead of
+relying on old files. `SceneSession` in `mcp/widget/src/scene.ts` imports the entry once more with
+a `?v=<time>` query (`freshQuery`) when loading or mounting it fails, and mounts a fresh entry at
+the same state when `setLanguage` fails. `createPacks` takes a widget language that fails to load
+from a fresh `widget.js?v=<time>`, through its `languageData` export. `createCatalogues` in
+`mcp/widget/src/catalogue.ts` imports a catalogue module once more with the query when it fails,
+and again when the user moves into the strip or the picker: at once after a first load that may
+have come from the cache, then at most every five minutes (`CATALOGUE_REFRESH_MS`). So a widget
+that stays open across a deploy shows the explainers published since. `loadFonts` lists the stable
+copy in `/embed/v1/fonts/` as the second source of each face, and the widget hides a cover that
+does not load. When the fresh attempt fails too, the stage shows its error with a retry and a link
+to the explainer on the site.
+
+The loader stays cached in chat hosts long after a release, and a deploy never refreshes it. Within `v1`, the entry
+name `/embed/v1/widget.js` (not hashed, so a stale copy lives at most as long as the host's HTTP
+cache), the `start(root, options)` export, the `assetBase`, `inbox` and `loaderVersion` options, the
+inbox contract above and the `wmit-asset-base` meta tag stay backward
+compatible: a new option is optional, and the module works with every loader version still
+installed. `LOADER_VERSION` in `mcp/shared/loader.ts` numbers the loader. Changing the loader is a
+breaking event: it reaches a user only when their host reads the resource again, which in Claude
+means reconnecting the connector.

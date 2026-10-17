@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { JS_BUDGET_GZIP, checkSite, loadedScripts } from './siteCheck.ts';
 import type { BuiltSite } from './siteCheck.ts';
 import { parse } from 'node-html-parser';
+import { LANGUAGE_CODES } from '../src/core/i18n/languages.ts';
+import { renderEmbedCatalogue } from './embedCatalogue.ts';
+import { renderRedirectStub } from './redirects.ts';
+import type { EmbedCatalogueEntry } from './embedCatalogue.ts';
 
 const SITE = 'https://whatmakesittick.github.io';
 const EXPLAINERS = ['engine', 'glider'];
@@ -71,6 +75,13 @@ function feedXml(code: string, slugs: readonly string[]): string {
     .join('');
 }
 
+function catalogueModule(slugs: readonly string[], aliases: Record<string, string> = {}): string {
+  const explainers = slugs.map((slug) => ({ slug }) as EmbedCatalogueEntry);
+  return renderEmbedCatalogue({ explainers, taglines: {}, aliases });
+}
+
+const CATALOGUES = LANGUAGE_CODES.map((code) => `/embed/v1/catalogue/${code}.js`);
+
 function site(overrides: Partial<Record<string, PageOptions>> = {}): BuiltSite {
   const pages = LANGUAGES.flatMap((code) =>
     ['', ABOUT, ...EXPLAINERS].map((slug) => {
@@ -86,6 +97,10 @@ function site(overrides: Partial<Record<string, PageOptions>> = {}): BuiltSite {
       ['/assets/shared.js', ''],
       ['/assets/three-x.js', ''],
       ['/assets/uk.js', ''],
+      ['/embed/v1/engine.js', 'import"../../assets/embed.js";import"../../assets/three-x.js";'],
+      ['/embed/v1/glider.js', 'import"../../assets/embed.js";'],
+      ['/assets/embed.js', 'import"./shared.js";'],
+      ...CATALOGUES.map((href) => [href, catalogueModule(EXPLAINERS)] as const),
     ]),
     gzipBytes: new Map([
       ['/assets/main.js', 8_000],
@@ -93,12 +108,17 @@ function site(overrides: Partial<Record<string, PageOptions>> = {}): BuiltSite {
       ['/assets/shared.js', 25_000],
       ['/assets/three-x.js', 160_000],
       ['/assets/uk.js', 1_000],
+      ['/embed/v1/engine.js', 1_000],
+      ['/embed/v1/glider.js', 1_000],
+      ['/assets/embed.js', 7_000],
+      ...CATALOGUES.map((href) => [href, 4_000] as const),
     ]),
     feeds: new Map(LANGUAGES.map((code) => [code, feedXml(code, EXPLAINERS)])),
     sitemap: pages.map((page) => `<loc>${SITE}${page.path}</loc>`).join('\n'),
     robots: 'Sitemap: x',
     notFound: '<meta name="robots" content="noindex">',
     favicon: new Uint8Array([0, 0, 1, 0, 2, 0]),
+    embedManifest: JSON.stringify({ explainers: EXPLAINERS.map((slug) => ({ slug })) }),
   };
 }
 
@@ -184,6 +204,95 @@ describe('checkSite', () => {
   });
 });
 
+describe('checkSite with a renamed explainer', () => {
+  const aliases = { motor: 'engine' };
+
+  function renamed(): BuiltSite {
+    const built = site();
+    const scripts = new Map(built.scripts);
+    scripts.set('/embed/v1/motor.js', 'export * from "./engine.js";');
+    for (const href of CATALOGUES) scripts.set(href, catalogueModule(EXPLAINERS, aliases));
+    return {
+      ...built,
+      scripts,
+      redirects: [
+        { path: '/motor/', html: renderRedirectStub('en', 'engine') },
+        { path: '/uk/motor/', html: renderRedirectStub('uk', 'engine') },
+      ],
+      embedManifest: JSON.stringify({
+        explainers: EXPLAINERS.map((slug) => ({ slug })),
+        aliases,
+      }),
+    };
+  }
+
+  it('accepts redirect stubs, an alias module and the aliases in every catalogue', () => {
+    expect(checkSite(renamed())).toEqual([]);
+  });
+
+  it('rejects a stub that leads nowhere, is indexed or loads scripts', () => {
+    const built = renamed();
+    const broken = renderRedirectStub('uk', 'heart')
+      .replace('content="noindex"', 'content="all"')
+      .replace('</head>', '<script src="x.js"></script></head>');
+    expect(
+      checkSite({
+        ...built,
+        redirects: [built.redirects![0]!, { path: '/uk/motor/', html: broken }],
+      }),
+    ).toEqual([
+      '/uk/motor/: redirects to /uk/heart/, which is not a built page',
+      '/uk/motor/: is not noindex',
+      '/uk/motor/: loads scripts',
+    ]);
+  });
+
+  it('rejects a stub whose canonical is another page', () => {
+    const built = renamed();
+    const html = renderRedirectStub('en', 'engine').replace(
+      'href="https://whatmakesittick.github.io/engine/"',
+      'href="https://whatmakesittick.github.io/glider/"',
+    );
+    expect(checkSite({ ...built, redirects: [{ path: '/motor/', html }] })).toEqual([
+      '/motor/: canonical is not https://whatmakesittick.github.io/engine/',
+    ]);
+  });
+
+  it('rejects an alias without its module, its redirect or a built target', () => {
+    const built = renamed();
+    const scripts = new Map(built.scripts);
+    scripts.delete('/embed/v1/motor.js');
+    const wrong = { motor: 'engine', sailplane: 'heart' };
+    for (const href of CATALOGUES) scripts.set(href, catalogueModule(EXPLAINERS, wrong));
+    expect(
+      checkSite({
+        ...built,
+        scripts,
+        redirects: [],
+        embedManifest: JSON.stringify({
+          explainers: EXPLAINERS.map((slug) => ({ slug })),
+          aliases: wrong,
+        }),
+      }),
+    ).toEqual([
+      '/embed/v1/motor.js is missing',
+      '/motor/ does not redirect',
+      'sailplane is an alias of heart, which is not built',
+      '/embed/v1/sailplane.js is missing',
+      '/sailplane/ does not redirect',
+    ]);
+  });
+
+  it('rejects a catalogue whose aliases differ from the manifest', () => {
+    const built = renamed();
+    const scripts = new Map(built.scripts);
+    scripts.set('/embed/v1/catalogue/de.js', catalogueModule(EXPLAINERS));
+    expect(checkSite({ ...built, scripts })).toEqual([
+      '/embed/v1/catalogue/de.js does not carry the aliases of the embed manifest',
+    ]);
+  });
+});
+
 describe('loadedScripts', () => {
   it('follows static imports from the module scripts and preloads', () => {
     const root = parse(pageHtml('uk', 'engine'));
@@ -192,6 +301,42 @@ describe('loadedScripts', () => {
       '/assets/uk.js',
       '/assets/shared.js',
       '/assets/three-x.js',
+    ]);
+  });
+
+  it('rejects a missing or heavy embed module and a manifest that misses an explainer', () => {
+    const built = site();
+    const scripts = new Map(built.scripts);
+    scripts.delete('/embed/v1/glider.js');
+    const gzipBytes = new Map(built.gzipBytes);
+    gzipBytes.set('/assets/embed.js', JS_BUDGET_GZIP.embed);
+    expect(
+      checkSite({
+        ...built,
+        scripts,
+        gzipBytes,
+        embedManifest: JSON.stringify({ explainers: [{ slug: 'engine' }] }),
+      }),
+    ).toEqual([
+      `/embed/v1/engine.js loads ${JS_BUDGET_GZIP.embed + 186_000} gzipped bytes of JavaScript, budget ${JS_BUDGET_GZIP.embed}`,
+      '/embed/v1/glider.js is missing',
+      'the embed manifest does not list exactly the built explainers',
+    ]);
+  });
+
+  it('rejects a catalogue module that is missing, broken, heavy or lists other explainers', () => {
+    const built = site();
+    const scripts = new Map(built.scripts);
+    scripts.delete('/embed/v1/catalogue/uk.js');
+    scripts.set('/embed/v1/catalogue/de.js', 'export default {');
+    scripts.set('/embed/v1/catalogue/ja.js', catalogueModule(['engine']));
+    const gzipBytes = new Map(built.gzipBytes);
+    gzipBytes.set('/embed/v1/catalogue/fr.js', JS_BUDGET_GZIP.catalogue + 1);
+    expect(checkSite({ ...built, scripts, gzipBytes })).toEqual([
+      '/embed/v1/catalogue/uk.js is missing',
+      '/embed/v1/catalogue/fr.js is 12001 gzipped bytes, budget 12000',
+      '/embed/v1/catalogue/de.js does not parse',
+      '/embed/v1/catalogue/ja.js does not list exactly the built explainers',
     ]);
   });
 });

@@ -1,0 +1,321 @@
+import type { McpUiHostContext } from '@modelcontextprotocol/ext-apps';
+import { isSlug, plainText, SITE_URL, type WidgetCatalogueEntry } from '../../shared/catalogue.ts';
+import type { EmbedInfo, EmbedState, LanguageCode } from '../../../src/core/embed/contract.ts';
+import {
+  WIDGET_TAGS_LINE,
+  WIDGET_TAGS_META,
+  type ModelContextSnapshot,
+} from '../../shared/tools.ts';
+import type { ChapterView, Discrete } from './views/types.ts';
+
+export interface Target {
+  slug: string;
+  chapter?: string;
+}
+
+type Obj = Record<string, unknown>;
+const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null;
+
+export function resolveChapter(entry: WidgetCatalogueEntry, raw: unknown): string | undefined {
+  if (typeof raw === 'number') raw = String(raw);
+  if (typeof raw !== 'string') return undefined;
+  const q = raw.trim().toLowerCase();
+  if (!q) return undefined;
+  const exact = entry.chapters.find((c) => c.id.toLowerCase() === q);
+  if (exact) return exact.id;
+  if (/^\d+$/.test(q)) return entry.chapters[Number(q) - 1]?.id;
+  const tokens = q.split(/[^a-z0-9]+/).filter((t) => t.length > 2);
+  if (tokens.length === 0) return undefined;
+  let best: { id: string; score: number } | undefined;
+  for (const c of entry.chapters) {
+    const hay = `${c.id} ${c.title}`.toLowerCase();
+    const score = tokens.filter((t) => hay.includes(t)).length;
+    if (score > 0 && (!best || score > best.score)) best = { id: c.id, score };
+  }
+  return best?.id;
+}
+
+export function targetFromInput(
+  args: unknown,
+  find: (slug: string) => WidgetCatalogueEntry | undefined,
+): Target | undefined {
+  if (!isObj(args) || typeof args.slug !== 'string' || !isSlug(args.slug)) return undefined;
+  const entry = find(args.slug);
+  if (!entry) return undefined;
+  const chapter = resolveChapter(entry, args.chapter);
+  return chapter ? { slug: entry.slug, chapter } : { slug: entry.slug };
+}
+
+const URL_RE = new RegExp(`${SITE_URL.replace(/[.]/g, '\\.')}/([a-z0-9-]+)/`);
+const CHAPTER_ID_RE = /\(id: ([a-z0-9-]+)\)/i;
+
+export function targetFromResult(
+  result: unknown,
+  find: (slug: string) => WidgetCatalogueEntry | undefined,
+): Target | undefined {
+  if (!isObj(result)) return undefined;
+  const sc = result.structuredContent;
+  const named = isObj(sc) && typeof sc.slug === 'string' ? find(sc.slug) : undefined;
+  if (isObj(sc) && named) {
+    return typeof sc.chapter === 'string' && sc.chapter
+      ? { slug: named.slug, chapter: sc.chapter }
+      : { slug: named.slug };
+  }
+  const content = Array.isArray(result.content) ? result.content : [];
+  for (const block of content) {
+    if (!isObj(block) || block.type !== 'text' || typeof block.text !== 'string') continue;
+    const linked = URL_RE.exec(block.text)?.[1];
+    const slug = linked ? find(linked)?.slug : undefined;
+    if (!slug) continue;
+    const chapter = CHAPTER_ID_RE.exec(block.text)?.[1];
+    return chapter ? { slug, chapter } : { slug };
+  }
+  return undefined;
+}
+
+const nameList = (value: unknown): string[] | undefined =>
+  Array.isArray(value)
+    ? value.filter((s): s is string => typeof s === 'string' && isSlug(s))
+    : undefined;
+
+export interface Scope {
+  tags: readonly string[];
+}
+
+const scopeOf = (tags: string[] | undefined): Scope | undefined => (tags ? { tags } : undefined);
+
+const lineList = (lines: readonly string[], prefix: string): string[] | undefined => {
+  const line = lines.find((l) => l.startsWith(prefix));
+  return line === undefined ? undefined : nameList(line.slice(prefix.length).split(/,\s*/));
+};
+
+export function scopeFromResult(result: unknown): Scope | undefined {
+  if (!isObj(result)) return undefined;
+  const sc = result.structuredContent;
+  const structured = isObj(sc) ? scopeOf(nameList(sc.allowedTags)) : undefined;
+  if (structured) return structured;
+  const content = Array.isArray(result.content) ? result.content : [];
+  for (const block of content) {
+    if (!isObj(block) || block.type !== 'text' || typeof block.text !== 'string') continue;
+    const scope = scopeOf(lineList(block.text.split('\n'), WIDGET_TAGS_LINE));
+    if (scope) return scope;
+  }
+  return undefined;
+}
+
+export function scopeFromToolInfo(ctx: Partial<McpUiHostContext>): Scope | undefined {
+  return scopeOf(nameList(ctx.toolInfo?.tool._meta?.[WIDGET_TAGS_META]));
+}
+
+export const resultFailed = (result: unknown): boolean => isObj(result) && result.isError === true;
+
+export type ResolveSlug = (slug: string) => string;
+
+export function canonicalEntries<T extends { slug: string }>(
+  items: readonly T[],
+  resolve: ResolveSlug,
+): T[] {
+  const named = new Set(items.map((i) => i.slug));
+  const kept = new Set<string>();
+  return items.flatMap((i) => {
+    const slug = resolve(i.slug);
+    if (kept.has(slug) || (slug !== i.slug && named.has(slug))) return [];
+    kept.add(slug);
+    return [slug === i.slug ? i : { ...i, slug }];
+  });
+}
+
+export function inScope(entry: { slug: string; tags: readonly string[] }, scope: Scope): boolean {
+  return entry.tags.every((t) => scope.tags.includes(t));
+}
+
+export function mayShow<T extends { slug: string; tags: readonly string[] }>(
+  entry: T | undefined,
+  scope: Scope | undefined,
+  failed: boolean,
+): entry is T {
+  if (!entry) return false;
+  return scope ? inScope(entry, scope) : !failed;
+}
+
+export function shownEntries<T extends { slug: string; tags: readonly string[] }>(
+  items: readonly T[],
+  scope: Scope | undefined,
+  current?: string,
+): T[] {
+  return items.filter((i) => (scope ? inScope(i, scope) : i.slug === current));
+}
+
+export function mergeTarget(prev: Target | undefined, next: Target): Target {
+  if (!prev || prev.slug !== next.slug) return next;
+  return prev.chapter === next.chapter ? prev : { ...prev, ...next };
+}
+
+export function wantedChapter(entry: WidgetCatalogueEntry, chapter: string | undefined): string {
+  return chapter && entry.chapters.some((c) => c.id === chapter)
+    ? chapter
+    : (entry.chapters[0]?.id ?? '');
+}
+
+export const EMPTY_DISCRETE: Discrete = { playing: false, view: {}, choices: {} };
+
+export function discreteOf(s: EmbedState): Discrete {
+  return { playing: s.playing, view: s.view, choices: s.choices };
+}
+
+export const sameDiscrete = (a: Discrete, b: Discrete): boolean =>
+  a.playing === b.playing &&
+  JSON.stringify(a.view) === JSON.stringify(b.view) &&
+  JSON.stringify(a.choices) === JSON.stringify(b.choices);
+
+export function neighbour(
+  ids: readonly string[],
+  current: string,
+  dir: -1 | 1,
+): string | undefined {
+  const i = ids.indexOf(current);
+  if (i < 0) return ids[0];
+  return ids[i + dir];
+}
+
+export const pad2 = (n: number): string => String(n).padStart(2, '0');
+
+export function chapterShort(id: string): string {
+  const words = id.replace(/[-_]+/g, ' ').trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+export function chapterViews(
+  entry: WidgetCatalogueEntry,
+  known: EmbedInfo | undefined,
+  scene: EmbedInfo | undefined,
+  lang: LanguageCode,
+): ChapterView[] {
+  return entry.chapters.map((c, i) => {
+    const fromInfo = known?.chapters.find((x) => x.id === c.id);
+    const title = scene?.chapters.find((x) => x.id === c.id)?.title ?? c.title;
+    return {
+      id: c.id,
+      index: i + 1,
+      title,
+      short: lang === 'en' ? chapterShort(c.id) : title,
+      paragraphsHtml: fromInfo?.paragraphsHtml ?? [],
+    };
+  });
+}
+
+type HostContext = Partial<McpUiHostContext>;
+
+export function frameOf(
+  ctx: HostContext,
+  coarse: () => boolean,
+): { style: Record<string, string>; touch: boolean } {
+  const insets = ctx.safeAreaInsets;
+  const radius = (ctx.styles?.variables as Record<string, string | undefined> | undefined)?.[
+    '--border-radius-xl'
+  ];
+  const style: Record<string, string> = {
+    '--safe-top': `${insets?.top ?? 0}px`,
+    '--safe-right': `${insets?.right ?? 0}px`,
+    '--safe-bottom': `${insets?.bottom ?? 0}px`,
+    '--safe-left': `${insets?.left ?? 0}px`,
+  };
+  if (radius) style['--border-radius-xl'] = radius;
+  return { style, touch: ctx.deviceCapabilities?.touch ?? coarse() };
+}
+
+export const allowsFullscreen = (ctx: HostContext): boolean =>
+  ctx.availableDisplayModes === undefined || ctx.availableDisplayModes.includes('fullscreen');
+
+export function snapshotOf(
+  slug: string,
+  state: EmbedState | undefined,
+  chapter: string,
+): ModelContextSnapshot {
+  return {
+    slug,
+    chapter: state?.chapter ?? chapter,
+    view: { ...(state?.view ?? {}) },
+    choices: { ...(state?.choices ?? {}) },
+    playing: state?.playing ?? false,
+  };
+}
+
+export const sameSnapshot = (
+  a: ModelContextSnapshot | undefined,
+  b: ModelContextSnapshot,
+): boolean => !!a && JSON.stringify(a) === JSON.stringify(b);
+
+const MAX_CHAPTER_TEXT = 2400;
+
+export function modelContextText(
+  entry: WidgetCatalogueEntry,
+  info: EmbedInfo | undefined,
+  snap: ModelContextSnapshot,
+  state: EmbedState | undefined,
+  lang?: LanguageCode,
+): string {
+  const scene = info && (!lang || info.language === lang) ? info : undefined;
+  const chapters =
+    scene?.chapters ??
+    entry.chapters.map((c, i) => ({ id: c.id, index: i + 1, title: c.title, paragraphsHtml: [] }));
+  const ch = chapters.find((c) => c.id === snap.chapter);
+  const parts: string[] = [];
+  parts.push(
+    ch
+      ? `User is now viewing "${entry.title}", chapter ${ch.index}/${chapters.length} "${ch.title}" (id ${ch.id}).`
+      : `User is now viewing "${entry.title}".`,
+  );
+  if (info) {
+    const views = info.toggles
+      .filter((t) => t.id in snap.view)
+      .map((t) => `${t.label.toLowerCase()} ${snap.view[t.id] ? 'on' : 'off'}`);
+    if (views.length) parts.push(`Views: ${views.join(', ')}.`);
+    for (const c of info.choices) {
+      const value = snap.choices[c.id];
+      const label = c.options.find((o) => o.value === value)?.label;
+      if (label) parts.push(`Choice ${c.label.toLowerCase()}: ${label}.`);
+    }
+  }
+  const phase = state?.phaseLabel ? ` at "${state.phaseLabel}"` : '';
+  parts.push(`Playback: ${snap.playing ? 'playing' : 'paused'}${phase}.`);
+  if (lang) parts.push(`Language: ${lang}.`);
+  let text = parts.join(' ');
+  if (ch && ch.paragraphsHtml.length) {
+    let body = ch.paragraphsHtml.map(plainText).join(' ');
+    if (body.length > MAX_CHAPTER_TEXT)
+      body = `${body.slice(0, MAX_CHAPTER_TEXT).replace(/\s+\S*$/, '')}…`;
+    text += `\nChapter text: ${body}`;
+  }
+  return text;
+}
+
+export function debounce<A extends unknown[]>(fn: (...args: A) => void, ms: number) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let last: A | undefined;
+  const run = () => {
+    timer = undefined;
+    if (last) fn(...last);
+    last = undefined;
+  };
+  const call = (...args: A) => {
+    last = args;
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(run, ms);
+  };
+  call.flush = () => {
+    if (timer) clearTimeout(timer);
+    run();
+  };
+  call.cancel = () => {
+    if (timer) clearTimeout(timer);
+    timer = undefined;
+    last = undefined;
+  };
+  return call;
+}
+
+export function stripOrder<T extends { slug: string }>(items: readonly T[], first: string): T[] {
+  const head = items.filter((i) => i.slug === first);
+  return [...head, ...items.filter((i) => i.slug !== first)];
+}

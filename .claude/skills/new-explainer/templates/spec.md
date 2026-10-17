@@ -4,7 +4,7 @@ Facts sheet: `<slug>-facts.md` next to this file. Every number in copy or readou
 
 ## 1. Identity
 
-- slug, tags (from `src/core/manifest.ts`), title, eyebrow
+- slug, tags (from `src/core/manifest.ts`), topic (one short English noun phrase, as people say it), title, eyebrow
 - subject: what exactly is modelled
 - what the model shows: the one story, start to end
 - simplifications the copy must own: scale, compressed distances or times, drawn things that are invisible, the model's own assumptions
@@ -40,7 +40,7 @@ One line per module: frozen or builder, the function names, the formulas, the na
 
 ## 7. Dock
 
-Choices with shortcut and option keys; toggles with shortcuts; gauge readouts with their format keys; the gauge side.
+Choices with shortcut and option keys; toggles with shortcuts; gauge readouts with their format keys; anything else the gauge shows, mounted through `mountGauge` so the chat widget shows it too; the gauge side.
 
 ## 8. Parts and labels
 

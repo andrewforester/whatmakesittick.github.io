@@ -11,7 +11,7 @@ Rules for the coordinator: read only the "Corrections" and "Safe numbers" sectio
 
 ## Steps
 
-1. **Pitch.** Agree the subject with the user in one paragraph: the angle, what the timeline measures and its phases, six chapters, the widgets and dock choices, the tags from `src/core/manifest.ts`, the main design risk.
+1. **Pitch.** Agree the subject with the user in one paragraph: the angle, what the timeline measures and its phases, six chapters, the widgets and dock choices, the tags from `src/core/manifest.ts`, the topic (a short English noun phrase for `explainer.json`), the main design risk.
 2. **Facts.** Spawn a research agent with `prompts/researcher.md`; it fills `templates/facts.md` in the session scratchpad. Fold its corrections into the pitch.
 3. **Spec and frozen files.** Spawn a Plan agent with `prompts/plan.md`; it drafts the spec from `templates/spec.md` next to the facts sheet. Review the spec, then let the same agent write and commit the frozen files with their tests on `feat/<slug>`.
 4. **Build.** Create `../wt-<slug>-scene` and `../wt-<slug>-copy` from `feat/<slug>` (`git worktree add`, then `npm ci` in each), add `explainers/<slug>/chapters.html` and `explainers/<slug>/locales/` to `.git/info/exclude`, then spawn in parallel the modeller (`prompts/modeller.md`, scene worktree), the builder (`prompts/builder.md`, main checkout) and the writer (`prompts/writer.md`, copy worktree). Within the first hour check the modeller's handedness screenshots against the real thing and the builder's phone contact sheet of the six views. When a frozen file must change, change it yourself, commit, and tell the agents.
@@ -20,3 +20,7 @@ Rules for the coordinator: read only the "Corrections" and "Safe numbers" sectio
 7. **Images.** With the dev server on port 5180: `node e2e/tools/cover.ts <slug> <phase> cover.png`, then `cwebp -q 85 -resize 932 699 cover.png -o explainers/<slug>/public/cover.webp`. Copy `meta.tagline` from `locales/en.json` into `scripts/cards/<slug>.html`, run `bash scripts/social-images.sh <slug>`. Look at both once, commit.
 8. **Browser QA.** `SLUG=<slug> QA_OUT=<dir> npx playwright test --config=e2e/tools/qa.config.ts` (add `QA_CHAPTERS=<n>` when the explainer has more than six chapters), then `node e2e/tools/contact.ts <dir> <sheet.png> <prefix>` per device. Check the chips and sliders by hand on the page. Send the sheets to the user. Resume the writer for one native-reader pass per language (`prompts/writer.md`, final section) and merge it the same way as in step 5.
 9. **Finish.** `npm run lint`, `npm test`, `npm run build` (not while the QA walk runs). Open the PR with the `/pr` skill. After the merge, ask the user to delete the worktrees and branches.
+
+## Renaming
+
+To rename an explainer later, move `explainers/<old>/` to `explainers/<new>/` and, in `explainer.json`, set `slug` to `<new>` and add `"formerSlugs": ["<old>"]`. The code never names the slug, so nothing else changes. The build keeps the old pages, the embed and the slug working (`ARCHITECTURE.md`, "Explainer package").

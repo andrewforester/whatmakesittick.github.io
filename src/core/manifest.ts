@@ -28,11 +28,13 @@ export interface SocialImage {
 export interface ExplainerManifest {
   slug: string;
   tags: Tag[];
+  topic: string;
   cover: string;
   entry: string;
   chapters: string;
   locales: LanguageCode[];
   social: SocialImage;
+  formerSlugs?: string[];
 }
 
 export interface ExplainerMeta {

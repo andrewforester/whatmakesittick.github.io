@@ -1,0 +1,226 @@
+import { useEffect, useMemo, useRef } from 'preact/hooks';
+import { explainerUrl, resolveSlug, type WidgetCatalogueEntry } from '../../shared/catalogue.ts';
+import type { WidgetHost } from './bridge.ts';
+import { StringsContext } from './i18n/context.ts';
+import type { Packs } from './i18n/packs.ts';
+import type { ModuleLoader, SceneStatus } from './scene.ts';
+import {
+  allowsFullscreen,
+  canonicalEntries,
+  chapterViews,
+  frameOf,
+  mayShow,
+  neighbour,
+  scopeFromToolInfo,
+  shownEntries,
+  stripOrder,
+} from './state.ts';
+import { ChapterSection } from './views/Chapter.tsx';
+import { ExploreStrip } from './views/Explore.tsx';
+import { Header, Stage } from './views/Stage.tsx';
+import type { Actions, ViewModel } from './views/types.ts';
+import { SITE_HOME } from './views/Brand.tsx';
+import { Unknown, Waiting } from './views/Empty.tsx';
+import { useKeyboard } from './keyboard.ts';
+import { useDisplayMode } from './useDisplayMode.ts';
+import { useHostContext } from './useHostContext.ts';
+import { useModelContextSync } from './useModelContextSync.ts';
+import { useSceneSession } from './useSceneSession.ts';
+import { useSceneSync } from './useSceneSync.ts';
+import { useStage } from './useStage.ts';
+import { useTarget } from './useTarget.ts';
+import { useWidgetLanguage } from './useWidgetLanguage.ts';
+
+export interface WidgetProps {
+  host: WidgetHost;
+  loader: ModuleLoader;
+  assetBase: string;
+  packs: Packs;
+  webgl: () => boolean;
+}
+
+export function Widget({ host, loader, assetBase, packs, webgl }: WidgetProps) {
+  const painted = useRef(false);
+
+  const sceneSession = useSceneSession(host, loader, webgl);
+  const { session, refs, ctrlRef, controller, status, progress, info, setInfo, renames } =
+    sceneSession;
+  const { pack, waiting, refresh } = useWidgetLanguage(host, packs, session);
+  const catalogue = pack.catalogue;
+  const aliases = useMemo(
+    () => ({ ...catalogue.aliases, ...renames }),
+    [catalogue.aliases, renames],
+  );
+  const resolve = (s: string) => resolveSlug(s, aliases);
+  const entries = useMemo(
+    () => canonicalEntries(catalogue.explainers, resolve),
+    [catalogue.explainers, aliases],
+  );
+  const entriesRef = useRef(entries);
+  entriesRef.current = entries;
+  const resolveRef = useRef(resolve);
+  resolveRef.current = resolve;
+  const find = (s: string): WidgetCatalogueEntry | undefined =>
+    entriesRef.current.find((e) => e.slug === resolveRef.current(s));
+  const ctx = useHostContext(host);
+  const toolScope = useMemo(() => scopeFromToolInfo(ctx), [ctx]);
+  const {
+    target: asked,
+    setTarget,
+    inputSeen,
+    resultSeen,
+    scope,
+    failed,
+  } = useTarget(host, find, session, toolScope, entries);
+  const askedSlug = asked ? resolve(asked.slug) : undefined;
+  const target = useMemo(
+    () => (asked && askedSlug ? { ...asked, slug: askedSlug } : undefined),
+    [askedSlug, asked?.chapter],
+  );
+  const slug = target?.slug;
+  const found = slug ? find(slug) : undefined;
+  const entry = mayShow(found, scope, failed) ? found : undefined;
+  const shown = shownEntries(entries, scope, entry?.slug);
+
+  useEffect(() => {
+    if (Object.keys(renames).length > 0) refresh(true);
+  }, [renames]);
+  const canOpen = (next: string) => shown.some((e) => e.slug === next);
+  const hold = !painted.current && waiting;
+
+  const { chapter, chapterRef, setChapter, disc, stripFirst } = useSceneSync(
+    sceneSession,
+    target,
+    entry,
+    hold,
+    webgl,
+  );
+
+  const userChanged = useModelContextSync(host, {
+    slug,
+    entry,
+    chapter,
+    disc,
+    info,
+    lang: pack.lang,
+    ctrlRef,
+  });
+
+  const { fullscreen, toggleFullscreen, stage } = useDisplayMode(host);
+  const canFullscreen = allowsFullscreen(ctx);
+
+  const sceneReady = status === 'ready' && controller?.info.slug === slug;
+  const wheelArmed = useStage(refs, ctrlRef, entry !== undefined && !hold, fullscreen, sceneReady);
+
+  const touched =
+    <A extends unknown[]>(fn: (...a: A) => void) =>
+    (...a: A) => {
+      userChanged.current = true;
+      fn(...a);
+    };
+  const openCatalogue = () => void host.openLink(SITE_HOME);
+  const actions: Actions = {
+    setChapter: touched((id: string) => {
+      setChapter(id);
+      ctrlRef.current?.setChapter(id);
+    }),
+    step(dir) {
+      if (!entry) return;
+      const ids = (info?.chapters ?? entry.chapters).map((c) => c.id);
+      const next = neighbour(ids, chapterRef.current, dir);
+      if (next) actions.setChapter(next);
+    },
+    togglePlay: touched(() => ctrlRef.current?.togglePlaying()),
+    seek: (p) => ctrlRef.current?.seek(p),
+    setView: touched((id: string, on: boolean) => ctrlRef.current?.setView(id, on)),
+    setChoice: touched((id: string, value: string) => ctrlRef.current?.setChoice(id, value)),
+    resetCamera: () => ctrlRef.current?.resetCamera(),
+    handleKey(event) {
+      const handled = ctrlRef.current?.handleKey(event) ?? false;
+      if (handled) userChanged.current = true;
+      return handled;
+    },
+    openSite: () => slug && void host.openLink(explainerUrl(slug)),
+    openCatalogue,
+    browse: () => refresh(),
+    toggleFullscreen,
+    switchTo: touched((next: string) => {
+      if (resolve(next) !== slug && canOpen(next)) setTarget({ slug: resolve(next) });
+    }),
+    retry() {
+      if (!slug) return;
+      setInfo(undefined);
+      void session.show(slug, chapterRef.current, { retry: true });
+    },
+  };
+
+  useKeyboard(actions, info, disc, sceneReady, canFullscreen || fullscreen ? stage : undefined);
+
+  const { style, touch } = frameOf(
+    ctx,
+    () => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches,
+  );
+  const rootClass = `wmit ${fullscreen ? 'is-fs' : 'is-inline'}${touch ? ' touch' : ''}`;
+
+  if (!entry || !slug || hold) {
+    return (
+      <StringsContext.Provider value={pack.strings}>
+        <div class={rootClass} style={style} lang={pack.lang}>
+          {resultSeen && !hold ? (
+            <Unknown
+              catalogue={shown}
+              assetBase={assetBase}
+              onPick={(s) => canOpen(s) && setTarget({ slug: resolve(s) })}
+              onOpen={openCatalogue}
+              onBrowse={() => refresh()}
+            />
+          ) : (
+            <Waiting onOpen={openCatalogue} quiet={hold || !inputSeen} />
+          )}
+        </div>
+      </StringsContext.Provider>
+    );
+  }
+  painted.current = true;
+
+  const known = info ?? (controller?.info.slug === slug ? controller.info : undefined);
+  const scene = known?.language === pack.lang ? known : undefined;
+  const chapters = chapterViews(entry, known, scene, pack.lang);
+
+  const shownStatus: SceneStatus = status === 'ready' && !sceneReady ? 'loading' : status;
+  const vm: ViewModel = {
+    slug,
+    entry,
+    tagline: scene?.tagline ?? catalogue.taglines[slug] ?? entry.summary,
+    info: known,
+    status: shownStatus,
+    progress,
+    chapter,
+    chapters,
+    disc,
+    fullscreen,
+    canFullscreen,
+    assetBase,
+    catalogue: shown,
+    strip: stripOrder(scope ? shown : entries, stripFirst ?? slug),
+    actions,
+  };
+
+  return (
+    <StringsContext.Provider value={pack.strings}>
+      <div class={`${rootClass} st-${shownStatus}`} style={style} data-slug={slug} lang={pack.lang}>
+        <Header key="header" vm={vm} />
+        <Stage
+          key="stage"
+          vm={vm}
+          refs={refs}
+          onPointerDown={() => (wheelArmed.current = true)}
+          onPointerLeave={() => (wheelArmed.current = false)}
+          onUserInput={() => (userChanged.current = true)}
+        />
+        <ChapterSection key="chapter" vm={vm} />
+        <ExploreStrip key="explore" vm={vm} />
+      </div>
+    </StringsContext.Provider>
+  );
+}
