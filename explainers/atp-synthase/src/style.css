@@ -166,6 +166,6 @@
   .chip[data-action='ring'],
   .chip[data-action='event'],
   .chip[data-action='training'] {
-    height: 44px;
+    min-height: 44px;
   }
 }

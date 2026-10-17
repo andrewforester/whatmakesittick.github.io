@@ -137,6 +137,6 @@
   .chip[data-action='wheel'],
   .chip[data-action='moment'],
   .chip[data-action='beatRate'] {
-    height: 44px;
+    min-height: 44px;
   }
 }

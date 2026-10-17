@@ -195,6 +195,6 @@
   .chip[data-action='section'],
   .chip[data-action='layer'],
   .chip[data-action='mudPlan'] {
-    height: 44px;
+    min-height: 44px;
   }
 }
