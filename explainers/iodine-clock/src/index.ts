@@ -27,7 +27,6 @@ function bindTimelineToStore(): BoundClock {
 const clock = bindTimelineToStore();
 
 export default defineExplainer<ClockStoreState>({
-  id: 'iodine-clock',
   timeline: clock.timeline,
   presets: PRESETS,
   parts: PART_INFO,

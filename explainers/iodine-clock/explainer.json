@@ -1,6 +1,7 @@
 {
   "slug": "iodine-clock",
   "tags": ["chemistry", "physics"],
+  "topic": "iodine clock reaction",
   "cover": "cover.webp",
   "entry": "src/index.ts",
   "chapters": "chapters.html",
