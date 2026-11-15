@@ -4,6 +4,15 @@
   --blue: #4a5bd1;
 }
 
+.gauge .readouts {
+  width: 15rem;
+}
+
+.gauge .readout dd {
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
 .chapter .readouts {
   --readout-min-width: 8rem;
   margin-block: 16px;
