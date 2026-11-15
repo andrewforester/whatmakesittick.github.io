@@ -71,20 +71,19 @@ export function createClockStore(overrides: Partial<ClockStoreState> = {}): Cloc
       presets: PRESETS,
       defaults: { preset: START_PRESET, speed: START_SPEED, view: DEFAULT_VIEW },
       extend: (set, get) => {
-        const restartWith = (changes: Partial<ChapterControls>) => set({ ...changes, ...RESTART });
         return {
           ...CHAPTER_CONTROL_DEFAULTS,
           ...PRESETS[START_PRESET].start,
           setScale: (scale) => set({ scale }),
           setIodate: (millimolar) => {
             const iodateMm = snapToRange(millimolar, IODATE_RANGE_MM);
-            if (iodateMm !== get().iodateMm) restartWith({ iodateMm });
+            if (iodateMm !== get().iodateMm) set({ iodateMm });
           },
           setTemperature: (celsius) => {
             const temperatureC = snapToRange(celsius, TEMPERATURE_RANGE_C);
-            if (temperatureC !== get().temperatureC) restartWith({ temperatureC });
+            if (temperatureC !== get().temperatureC) set({ temperatureC });
           },
-          mixAgain: () => restartWith({}),
+          mixAgain: () => set(RESTART),
         };
       },
       presetState: presetFields,

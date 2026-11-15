@@ -51,16 +51,12 @@ describe('clock store', () => {
     expect(store.getState().phase).toBeCloseTo(PHASE_RANGES.pour.end, 0);
   });
 
-  it('snaps, clamps and restarts the run on a recipe change', () => {
+  it('snaps and clamps a recipe change and keeps the stage of the reaction', () => {
     const store = createClockStore({ phase: 500, playing: false });
     store.getState().setIodate(31.2);
-    expect(store.getState()).toMatchObject({ iodateMm: 30, phase: 0, playing: true });
-    store.getState().setPhase(400);
-    store.getState().setIodate(30.4);
-    expect(store.getState().phase).toBe(400);
+    expect(store.getState()).toMatchObject({ iodateMm: 30, phase: 500, playing: false });
     store.getState().setTemperature(99);
-    expect(store.getState()).toMatchObject({ temperatureC: 40, phase: 0 });
-    store.getState().setPhase(400);
+    expect(store.getState()).toMatchObject({ temperatureC: 40, phase: 500, playing: false });
     store.getState().mixAgain();
     expect(store.getState()).toMatchObject({ phase: 0, playing: true });
   });

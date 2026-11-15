@@ -73,6 +73,7 @@ export function createClockTimeline(getState: () => RecipeSource): Timeline {
     formatPhase: (units) => t('timeline.value', { seconds: secondsAt(units) }),
     describePhase: (units) =>
       t('timeline.during', { seconds: secondsAt(units), phase: t(phaseKey(phaseIdAt(units))) }),
+    formatInputs: () => [switchSecondsOf(getState())],
     rate: nominalRate,
     phases: CLOCK_PHASES,
     speed: {

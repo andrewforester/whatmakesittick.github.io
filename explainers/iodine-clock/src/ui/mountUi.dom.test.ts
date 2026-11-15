@@ -85,10 +85,10 @@ describe('chapter widgets', () => {
     expect(readout('acidMade')).toBe(fill(units.millimolar, { value: '12.50' }));
   });
 
-  it('moves the switch time with both sliders and restarts the run', () => {
+  it('moves the switch time with both sliders and keeps the stage of the reaction', () => {
     store.getState().setPhase(500);
     slide('tuning-iodate', 12.5);
-    expect(store.getState()).toMatchObject({ iodateMm: 12.5, phase: 0, playing: true });
+    expect(store.getState()).toMatchObject({ iodateMm: 12.5, phase: 500 });
     expect(output('tuning-iodate')).toBe(fill(units.millimolar, { value: '12.5' }));
     expect(readout('tuningSwitch')).toBe(fill(timeline.value, { seconds: '20.0' }));
     expect(readout('switchAt')).toBe(fill(timeline.value, { seconds: '20.0' }));
