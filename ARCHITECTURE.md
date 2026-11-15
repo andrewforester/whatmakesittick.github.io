@@ -148,6 +148,7 @@ interface Timeline {
   phasesLabelKey: string; // phase button group, "Jump to a stroke"
   formatPhase(phase: number): string; // "402°"
   describePhase(phase: number): string; // scrubber value text, "402°, power stroke"
+  formatInputs?(): unknown[]; // other values the two texts read; a change re-renders them at the same phase
   rate(speed: number): number; // phase units per second at this speed
   phases: { id; start; end; labelKey; jumpLabelKey; tone }[]; // tone is a CSS colour
   speed: { min; max; step; labelKey; format(speed): string; describe(speed): string };
