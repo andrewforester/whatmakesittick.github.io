@@ -267,7 +267,7 @@
     },
     "tuning": {
       "title": "Setting the clock",
-      "p1": "You can set this clock yourself. The iodate slider sets how much iodate the mixture holds. Half the iodate gives about twice the wait. Twice the iodate gives about half. Each change mixes a fresh beaker, so you can watch the stopwatch again. The model makes the wait follow the iodate exactly. Real beakers only come close.",
+      "p1": "You can set this clock yourself. The iodate slider sets how much iodate the mixture holds. Half the iodate gives about twice the wait. Twice the iodate gives about half. The moment of the switch moves on the graph right away. Press Mix again to watch a fresh beaker from the start. The model makes the wait follow the iodate exactly. Real beakers only come close.",
       "p2": "Acid speeds the clock too. In the Dushman step, the hydrogen ions count twice: the rate follows their amount squared. So a few drops of sulfuric acid bring the colour sooner. This recipe adds none, because it makes its own.",
       "p3": "Warmer mixtures change colour sooner, and ice slows them down. In one classroom demo with a slower recipe, the colour took 45 s in an ice bath and 30 s at room temperature. Nobody agrees yet on exactly how strong the effect is. So the model draws a smooth curve of its own through those classroom times. Treat the temperature slider as a sketch, not a measurement.",
       "p4": "There is no bisulfite slider. How bisulfite changes the wait is still argued over. So the model holds it fixed and lets the iodate set the pace. Whatever you pick, there is always less than three times as much bisulfite as iodate. So the colour always comes.",
