@@ -1,4 +1,4 @@
-import { BufferAttribute, BufferGeometry, Color, Mesh, ShaderMaterial } from 'three';
+import { BufferAttribute, BufferGeometry, Color, Mesh, ShaderMaterial, Vector3 } from 'three';
 import type { Object3D } from 'three';
 import { lerp, smoothstep } from '@core/math';
 import { UNDIMMED_GROUP } from '@core/scene/materials';
@@ -9,9 +9,15 @@ import type { PartContext } from './context';
 import { RENDER_ORDER } from './beaker/glassware';
 
 const VEIL_VERTEX = /* glsl */ `
+uniform vec3 uFocus;
+uniform float uProgress;
+uniform float uDirection;
 varying vec2 vScreen;
 void main() {
-  vScreen = position.xy;
+  vec4 focus = projectionMatrix * viewMatrix * vec4(uFocus, 1.0);
+  float travel = uDirection > 0.0 ? uProgress : 1.0 - uProgress;
+  vec2 centre = clamp(focus.xy / focus.w, -1.0, 1.0) * (1.0 - smoothstep(0.0, 0.5, travel));
+  vScreen = position.xy - centre;
   gl_Position = vec4(position.xy, 0.0, 1.0);
 }
 `;
@@ -107,6 +113,7 @@ export class DiveVeil {
           uDirection: { value: 1 },
           uColour: { value: new Color(VEIL.clear) },
           uDeep: { value: new Color(VEIL.navy) },
+          uFocus: { value: new Vector3(...CROSSFADE.focus) },
         },
       }),
     );

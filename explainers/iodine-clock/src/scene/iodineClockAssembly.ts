@@ -81,7 +81,7 @@ class IodineClockAssembly implements Assembly {
   setState(state: AssemblyState): void {
     if (state.scale !== this.target) {
       this.target = state.scale;
-      this.fade = 0;
+      this.fade = 1 - this.fade;
     }
     this.depth = state.clock.colour;
     SCALE_IDS.forEach((scale) => this.worlds[scale].setState(state));
