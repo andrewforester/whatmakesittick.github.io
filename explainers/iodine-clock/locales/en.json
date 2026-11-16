@@ -1,11 +1,11 @@
 {
   "meta": {
-    "title": "How the iodine clock works",
+    "title": "How an iodine clock keeps time",
     "eyebrow": "Chemistry",
-    "tagline": "Two clear liquids, about ten seconds of nothing, then blue-black in a blink: a race between molecules that keeps time.",
-    "description": "A 3D iodine clock, from the beaker down to the molecules: why two clear liquids wait about 10 seconds, then turn blue-black in a blink.",
+    "tagline": "Two clear liquids, about ten seconds of nothing, then blue-black in a blink: a race between molecules that ends right on cue.",
+    "description": "The iodine clock reaction in 3D, from the beaker down to the molecules: why two clear liquids wait about 10 seconds, then turn blue-black in a blink.",
     "summary": "The pour, the slow step, the iodine nobody sees, the last bisulfite, the starch helix, and how to set the clock.",
-    "socialAlt": "A wide beaker of blue-black liquid on a magnetic stirrer beside a stopwatch, next to the title How the iodine clock works"
+    "socialAlt": "A wide beaker of blue-black liquid on a magnetic stirrer beside a stopwatch, next to the title How an iodine clock keeps time"
   },
   "stage": {
     "label": "Interactive iodine clock model",
