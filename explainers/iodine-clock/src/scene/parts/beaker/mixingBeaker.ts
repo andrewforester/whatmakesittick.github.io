@@ -1,6 +1,6 @@
 import { Color, Vector3 } from 'three';
-import type { MeshStandardMaterial, Object3D } from 'three';
-import { clamp, lerp, smoothstep, toRadians } from '@core/math';
+import type { MeshBasicMaterial, MeshStandardMaterial, Object3D } from 'three';
+import { lerp, smoothstep, toRadians } from '@core/math';
 import type { AssemblyState } from '../../../ids';
 import {
   LIQUID_AREA_CM2,
@@ -17,6 +17,7 @@ import type { BeakerShape } from '../../geometry/beaker';
 import { addMesh, label, namedGroup } from '../context';
 import type { PartContext, Section } from '../context';
 import { OPAQUE_FRAGMENT, WORLD_POSITION_VERTEX, patchMaterial } from '../patches';
+import { contactShadow } from './bench';
 import { RENDER_ORDER, addGlassware, addGraduation } from './glassware';
 import { pourShareFlow } from './pourMotion';
 
@@ -36,7 +37,13 @@ const LABEL_SIDE = 0.72;
 const MIXTURE_HEAD = /* glsl */ `
 varying vec3 vWorldPos;
 uniform float uDepth;
-uniform float uBloom;
+uniform float uFrontWidth;
+uniform float uFrontRadial;
+uniform float uRadius;
+uniform vec3 uClear;
+uniform vec3 uDark;
+uniform float uClearOpacity;
+uniform float uDarkOpacity;
 uniform float uStir;
 uniform float uSchlieren;
 uniform float uSurface;
@@ -56,19 +63,22 @@ float swirlRadius = length(fromAxis);
 float swirl = sin(swirlAngle * 3.0 + swirlRadius * 1.3 - uStir + vWorldPos.y * 0.9);
 float swirlFine = sin(swirlAngle * 7.0 - swirlRadius * 2.1 - uStir * 1.6 + vWorldPos.y * 2.3);
 float streak = 0.5 + 0.35 * swirl + 0.15 * swirlFine;
-float bloom = uBloom * (streak - 0.5) * 2.0;
-gl_FragColor.rgb = mix(gl_FragColor.rgb, gl_FragColor.rgb * 0.35, clamp(bloom, 0.0, 1.0));
-gl_FragColor.rgb *= 1.0 - uDeepen * uDepth;
-gl_FragColor.rgb = mix(gl_FragColor.rgb, uThin, liquidEdge * uDepth * uEdgeMix);
+float frontEdge = mix(streak, swirlRadius / uRadius, uFrontRadial) * (1.0 - uFrontWidth);
+float localDepth = smoothstep(frontEdge, frontEdge + uFrontWidth, uDepth);
+float lead = localDepth - uDepth;
+float leadShare = abs(lead);
+gl_FragColor.rgb = mix(gl_FragColor.rgb, lead > 0.0 ? uDark : uClear, leadShare);
+gl_FragColor.a = mix(gl_FragColor.a, lead > 0.0 ? uDarkOpacity : uClearOpacity, leadShare);
+gl_FragColor.rgb *= 1.0 - uDeepen * localDepth;
+gl_FragColor.rgb = mix(gl_FragColor.rgb, uThin, liquidEdge * localDepth * uEdgeMix);
 gl_FragColor.rgb += vec3(0.6, 0.75, 0.85) * uSchlieren * max(0.0, swirlFine) * 0.35;
-float meniscus = smoothstep(0.35, 0.0, abs(vWorldPos.y - uSurface)) * (1.0 - uDepth);
+float meniscus = smoothstep(0.35, 0.0, abs(vWorldPos.y - uSurface)) * (1.0 - localDepth);
 gl_FragColor.rgb += vec3(0.75, 0.9, 1.0) * meniscus * 0.35;
-gl_FragColor.a = clamp(gl_FragColor.a + meniscus * 0.3 + liquidEdge * mix(0.18, 0.02, uDepth) + uSchlieren * 0.08 * swirl + uBloom * 0.25 * streak, 0.0, 1.0);
+gl_FragColor.a = clamp(gl_FragColor.a + meniscus * 0.3 + liquidEdge * mix(0.18, 0.02, localDepth) + uSchlieren * 0.08 * swirl, 0.0, 1.0);
 `;
 
 interface MixtureUniforms {
   uDepth: { value: number };
-  uBloom: { value: number };
   uStir: { value: number };
   uSchlieren: { value: number };
   uSurface: { value: number };
@@ -77,7 +87,6 @@ interface MixtureUniforms {
 function patchMixture(material: MeshStandardMaterial): MixtureUniforms {
   const uniforms: MixtureUniforms = {
     uDepth: { value: 0 },
-    uBloom: { value: 0 },
     uStir: { value: 0 },
     uSchlieren: { value: 0 },
     uSurface: { value: 0 },
@@ -89,6 +98,13 @@ function patchMixture(material: MeshStandardMaterial): MixtureUniforms {
       uThin: { value: new Color(LIQUID_LOOK.thinTint) },
       uEdgeMix: { value: LIQUID_LOOK.edgeMix },
       uDeepen: { value: LIQUID_LOOK.deepen },
+      uFrontWidth: { value: LIQUID_LOOK.frontWidth },
+      uFrontRadial: { value: LIQUID_LOOK.frontRadial },
+      uRadius: { value: MIXING_BEAKER.innerRadius },
+      uClear: { value: new Color(LIQUID_TINTS.clear) },
+      uDark: { value: new Color(LIQUID_TINTS.dark) },
+      uClearOpacity: { value: LIQUID_TINTS.clearOpacity },
+      uDarkOpacity: { value: LIQUID_LOOK.darkOpacity },
       uCentre: { value: new Vector3(...MIXING_BEAKER.base) },
     },
     vertexHead: WORLD_POSITION_VERTEX.head,
@@ -137,6 +153,13 @@ export function buildMixingBeaker(context: PartContext, parent: Object3D): Secti
   const uniforms = patchMixture(liquidMaterial);
   const clear = new Color(LIQUID_TINTS.clear);
   const dark = new Color(LIQUID_TINTS.dark);
+  const shadeTint = new Color(LIQUID_LOOK.shadeTint);
+  const shadeSize = outer * 2 * LIQUID_LOOK.shadeSpread;
+  const shade = contactShadow(context, root, shadeSize, shadeSize, 0);
+  shade.name = 'liquidShade';
+  shade.position.x = LIQUID_LOOK.shadeOffset[0];
+  shade.position.z = LIQUID_LOOK.shadeOffset[2];
+  const shadeMaterial = shade.material as MeshBasicMaterial;
   label(context, 'mixture', mixture, [
     -MIXING_BEAKER.innerRadius * 0.35,
     HALF,
@@ -153,7 +176,8 @@ export function buildMixingBeaker(context: PartContext, parent: Object3D): Secti
       liquidMaterial.color.copy(clear).lerp(dark, Math.sqrt(depth));
       liquidMaterial.opacity = lerp(LIQUID_TINTS.clearOpacity, LIQUID_LOOK.darkOpacity, depth);
       uniforms.uDepth.value = depth;
-      uniforms.uBloom.value = clamp(4 * depth * (1 - depth), 0, 1) * LIQUID_LOOK.bloomStrength;
+      shadeMaterial.color.copy(shadeTint).lerp(dark, depth);
+      shadeMaterial.opacity = LIQUID_LOOK.shadeOpacity * depth;
       uniforms.uStir.value = toRadians(clock.stirDeg) * 0.08;
       uniforms.uSchlieren.value =
         LIQUID_LOOK.schlierenStrength *

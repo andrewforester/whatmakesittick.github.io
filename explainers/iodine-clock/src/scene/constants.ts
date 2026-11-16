@@ -41,9 +41,9 @@ export const CROSSFADE = {
 } as const;
 
 export const BENCH = {
-  top: '#171a20',
-  wall: '#141925',
-  grout: '#0c0f16',
+  top: '#3b2e25',
+  wall: '#3c4756',
+  grout: '#1a2029',
   halfWidth: 90,
   front: 40,
   back: -42,
@@ -95,7 +95,12 @@ export const LIQUID_LOOK = {
   thinTint: '#24318a',
   edgeMix: 0.32,
   deepen: 0.55,
-  bloomStrength: 0.75,
+  frontWidth: 0.3,
+  frontRadial: 0.35,
+  shadeTint: '#24318a',
+  shadeOpacity: 0.8,
+  shadeSpread: 1.65,
+  shadeOffset: [0.6, 0, -0.4] as Point,
   schlierenSeconds: 2.5,
   schlierenStrength: 0.22,
 } as const;
